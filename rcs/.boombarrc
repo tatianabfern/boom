@@ -123,7 +123,16 @@ _boombarenv() {
     ;;
     BBMREMARK)
       # Call with BBMREMARK <remark>
-      echo "export BOOMBAR_BBMREMARK=\"$2\"" > /tmp/.boombar-bbmremark
+      local cleanarg
+      cleanarg="${2//\\/\\\\}"
+      cleanarg="${cleanarg//\[/\\[}"
+      cleanarg="${cleanarg//\]/\\]}"
+      cleanarg="${cleanarg//|/\\|}"
+      cleanarg="${cleanarg//\"/\\\"}"
+      cleanarg="${cleanarg//\`/\\\`}"
+      cleanarg="${cleanarg//\&/\\\&}"
+
+      echo "export BOOMBAR_BBMREMARK=\"$cleanarg\"" > /tmp/.boombar-bbmremark
       source /tmp/.boombar-bbmremark
     ;;
     LASTBOOM)

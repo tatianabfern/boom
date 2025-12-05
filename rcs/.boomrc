@@ -208,6 +208,9 @@
 # 2.8.3  - handle doom state in background bar updater
 # 2.8.4  - restore boombot bar integration with background updater - lastbooms and bbmremark use global tmp files
 # 2.8.5  - site config is built with emoji preferences as well as column prefs
+# 2.8.6  - general bug fixes, ascii doesn't need \ escaped in file now
+# 2.8.7  - /ascii delete|rules now supported for more accessibility
+# 2.8.8  - board summary now shows cmds only if users/5+2 have boomed - avg/freq solo boards still just need 2 users
 
 DOOMBOOM=
 # Multiple ways to have BOOMCFGFILE set:
@@ -951,7 +954,7 @@ alias boomhelp="_boomIntroTxt flag"
 # "\t${B}boom-board${N} [${B}avg${N} | ${B}drought${N} | ${B}freq${N} | ${B}full${N} | ${B}today${N} | ${B}top${N} [NUM] | ${B}help${N} | CMD | ${B}-${N}] [USER USER ...]";
 # "\t\tshows boom leaderboard for all boomusers";
 # "\t\tusers will be ordered by source date, USER args, or the space-delimited BOOMTABLECOLS env var (see \`boom conf\`)";
-# "\t\twill print avg/freq/top/drought boards by default, or:";
+# "\t\twill print avg/freq/top/drought boards with all commands boomed by $(userCount=$(wc -l /$BOOMUSERDIR/$BOOMBOSS/$BOOMINSTALL/.boomusers 2>/dev/null | awk '{print $1}') echo $((${userCount-1}/5+2)))+ users by default, or:";
 # "\n\t\t${B}avg${N}\n\t\t\tsee and compare user avgs of all commands randomly boomed by more than one person";
 # "\t\t${B}drought${N}\n\t\t\tsee and compare longest & current droughts";
 # "\t\t${B}freq${N}\n\t\t\tsee and compare boom frequency for all commands randomly boomed by more than one person";
@@ -971,6 +974,7 @@ alias boomhelp="_boomIntroTxt flag"
 ###ExcFunction _boom-chat-timeout
 # "\t${B}boom-chat${N} [${B}/${N}<cmd> | ${B}cipher${N} | ${B}decipher${N} | ${B}edit${N} | ${B}env${N} | ${B}clear${N} | ${B}timeout${N} | ${B}help${N}] [COMMENT]";
 # "\t\tpost COMMENT to the boom zone ($BOOMSITE)";
+# "\t\tquote COMMENT in terminal or use env to avoid problematic chars in bash cmd line parsing";
 # "\t\tuse \`chat\` alias to be faster";
 # "\t\tmention boomusers with @";
 # "\n\t\t${B}cipher${N} COMMENT\n\t\t\tput COMMENT in code on the site";
@@ -1194,9 +1198,9 @@ boom() {
         ;;
         board_-_) ;&
         board__)
-          local modifier=
+          local modifier=summary
           if [ $(wc -l <<<"$userList" | awk '{print $1}') -eq 1 ]; then modifier=rare; fi
-          local freqmodifier=totals
+          local freqmodifier=summarytotals
           if [ $(wc -l <<<"$userList" | awk '{print $1}') -eq 1 ]; then freqmodifier=rare; fi
 
           echo Average Leaderboard
@@ -1976,7 +1980,7 @@ chat() {
 _chatHelpTxt() {
   echo $_BE_BOT$_BE_BOT Welcome to the BoomBot help $_BE_BOT$_BE_BOT
   echo /help - BoomBot will print this!
-  echo /ascii FILE - BoomBot will let you print ascii file to chat - completes with files in \~/ascii dir unless completing from top level path!
+  echo /ascii {FILE \| delete \| rules} - BoomBot will let you print ascii FILE to chat - run /ascii rules for more info!
   echo /boomstoday - BoomBot will print a breakdown of how many random booms each user has received today!
   echo /hype PERSON - BoomBot will hype up \(\"boombot\" \| \"me\" \| \"random\"\) or any \"\<boomusername\>\"!
   echo /joke - BoomBot will tell a joke in chat!
@@ -2206,13 +2210,52 @@ _chat_cmds() {
   fi
   case /${cmd}_${flag}_ in
     /ascii_all_)
+      local maxlinechars=57 maxlines=35
+
+      case "/ascii_$2_" in
+        /ascii_delete_)
+          local delline=$(tail -n 1 $_boommeterLog)
+          local lines=$(tac <(tail -n 53 $_boommeterLog | head -n -1) | sed "\|$USER: /ascii | q;")
+          local count=$(echo "${lines[@]}" | wc -l)
+          local asciifound=$(grep -q "\[ASCII\] $USER:" <<<"${lines[@]}"; echo $?)
+
+          if [[ -z "${lines[@]}" || $count -lt 1 || "$asciifound" != "0" ]]; then
+            echo ERROR: No ASCII found to delete!
+            echo "boombot: $_BE_BOT $USER is making BoomBot's job easy" >> $_boommeterLog
+            return
+          fi
+
+          local tmplog=/tmp/boommeterlog-$USER
+          head -n -$((count+1)) $_boommeterLog > $tmplog
+          sed "1 a boombot: $_BE_BOT *$USER deleted this ASCII*" <(tac <<<"${lines[@]}") | grep -v "\[ASCII\] $USER:" >> $tmplog
+          echo "${delline}" >> $tmplog
+
+          \cp -f $tmplog $_boommeterLog &>/dev/null
+          rm $tmplog 2>/dev/null
+          echo $_BE_BOT Deleted your latest masterpiece!
+          return
+        ;;
+        /ascii_rules_)
+          echo "            $_BE_BOT ASCII Style Guide and Usage $_BE_BOT"
+          echo " Char Limit: $maxlinechars"
+          echo " Line Limit: $maxlines"
+          echo " ASCII must only use ASCII chars"
+          echo " Command will complete with files in ~/ascii or local paths"
+          echo " Delete function will delete your art since your last /ascii cmd only"
+          echo
+          echo " Put spaces after backslashes at end of line"
+          echo " Include end of line at end of file"
+          echo boombot: $(boommeter _bot learning the rules) >> $_boommeterLog
+          return
+        ;;
+      esac
+
       # Thanks to Tatiana for this concept
       # Check in user's home for ascii file
       local file
       if [ -d "/$BOOMUSERDIR/$USER/ascii" ] && [ -f "/$BOOMUSERDIR/$USER/ascii/$2" ]; then file="/$BOOMUSERDIR/$USER/ascii/$2"; else file="$2"; fi
 
       local bad
-      local maxlinechars=57 maxlines=35
       if [ -z "$file" ]; then echo Expects FILE argument with ascii text; bad=yes;
       elif [ ! -f "$file" ]; then echo $file is not a file; bad=yes;
       elif [ ! -r "$file" ]; then echo $file is not readable; bad=yes;
@@ -2225,9 +2268,9 @@ _chat_cmds() {
       if [[ "$bad" == "yes" ]]; then echo boombot: $_BE_BOT $USER is a struggling artist >> $_boommeterLog; return; fi
       while IFS= read line; do
         echo "[ASCII] $USER: $line" >> $_boommeterLog
-      done < <(tac "$file")
+      done < <(tac "$file" | sed -e 's/\\/\\\\\\/g')
       if [ $(($RANDOM % 3)) -eq 1 ]; then
-        echo boombot: $_BE_BOT BoomBot $(echo loves hates dreads enjoys likes despises | xargs shuf -n1 -e) that ascii >> $_boommeterLog
+        echo boombot: $_BE_BOT BoomBot $(echo loves hates dreads enjoys likes despises loathes | xargs shuf -n1 -e) that ascii >> $_boommeterLog
       else
         echo boombot: $(boommeter _bot that ascii) >> $_boommeterLog
       fi
@@ -2594,7 +2637,8 @@ _boom() {
     compopt -o default
     if [[ -d "/$BOOMUSERDIR/$USER/ascii" ]]; then
       local asciis=($(\ls -1 /$BOOMUSERDIR/$USER/ascii))
-      COMPREPLY=($(compgen -W "${asciis[*]}" -- $2))
+      local asciiopts=($(declare -f _chat_cmds | sed -ne '/^\s.*)$/ s/\s*\/ascii_\(.*\)_)/\1/p' | grep -v [*_] | grep -v '\(all\)'))
+      COMPREPLY=($(compgen -W "${asciis[*]} ${asciiopts[*]}" -- $2))
     fi
     return
   fi
@@ -2679,7 +2723,8 @@ _chat() {
     compopt -o default
     if [[ -d "/$BOOMUSERDIR/$USER/ascii" ]]; then
       local asciis=($(\ls -1 /$BOOMUSERDIR/$USER/ascii))
-      COMPREPLY=($(compgen -W "${asciis[*]}" -- $2))
+      local asciiopts=($(declare -f _chat_cmds | sed -ne '/^\s.*)$/ s/\s*\/ascii_\(.*\)_)/\1/p' | grep -v [*_] | grep -v '\(all\)'))
+      COMPREPLY=($(compgen -W "${asciis[*]} ${asciiopts[*]}" -- $2))
     fi
     return
   fi

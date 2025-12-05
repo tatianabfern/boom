@@ -61,6 +61,9 @@ echo Configuring $servicefile using boom config...
 sed -i "s|<USER>|$USER|" $servicefile || exit 1
 sed -i "s|<TL_BOOMINSTALL>|/$BOOMUSERDIR/$BOOMBOSS/$BOOMINSTALL|" $servicefile || exit 1
 
+echo
+read -p "IMPORTANT: The default password (DEFPASSWD) defined in .boomserver/.boombackend.py is the sha256 hash of 'boomers'. Hit enter to acknowledge. " respY
+echo
 read -p "Server files configured. Would you like to enable the service? [y/N]" respY
 if [[ ! " y Y yes " =~ " $respY " ]]; then
   echo Setup complete. Run \`cd $EXPECTED_BOOMINSTALL/.boomserver\; python3 ${backendfile#$EXPECTED_BOOMINSTALL/.boomserver/}\` to start the site at $BOOMSITE

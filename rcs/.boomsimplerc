@@ -65,7 +65,7 @@ _simpleboommeter() {
     elif [[ $UID -eq 0 || "$(whoami)" == "root" ]]; then
       :
     else
-      alias boomsu='echo "_boomsu" >'"$_boomTracker"'; sudo bash -c "$(declare -f _simpleboommeter _exportEmojis); export -f _simpleboommeter; export -f _exportEmojis; export '"$(_exportEmojis)"'; export BOOMCONTS='"$BOOMCONTS"'; BOOMDEST='"$BOOMDEST"'; export BOOMHOSTUSER='"$BOOMHOSTUSER"'; export PROMPT_COMMAND='"'_simpleboommeter __auto'"'; export BOOMFIRSTRUN=boomsu; export BOOMSUUSER='"${UID:-$(id $USER --user)}"'; export BOOMSUGROUP='"${GID:-$(id $USER --group)}"'; bash -c su; echo "_boomsu" > '"$_boomTracker"'";' &>/dev/null
+      alias boomsu='echo "_boomsu" >'"$_boomTracker"'; sudo bash -c "$(declare -f _simpleboommeter _exportEmojis); export -f _simpleboommeter; export -f _exportEmojis; export '"$(_exportEmojis)"'; export BOOMCONTS='"$BOOMCONTS"'; export BOOMDEST='"$BOOMDEST"'; export BOOMHOSTUSER='"$BOOMHOSTUSER"'; export PROMPT_COMMAND='"'_simpleboommeter __auto'"'; export BOOMFIRSTRUN=boomsu; export BOOMSUUSER='"${UID:-$(id $USER --user)}"'; export BOOMSUGROUP='"${GID:-$(id $USER --group)}"'; bash -c su; echo "_boomsu" > '"$_boomTracker"'";' &>/dev/null
     fi
   fi
   if [ ! -w "$_boomTracker" ]; then export BOOMFIRSTRUN=fileerased; echo boommeter detected session closure - restarting; return; fi

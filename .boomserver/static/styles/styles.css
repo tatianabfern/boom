@@ -107,6 +107,7 @@ pre {
 .table-head {
     top: -10px;
     position: sticky;
+    width: fit-content;
     z-index: 1;
     background-color: var(--primary-color);
     display: block;

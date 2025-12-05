@@ -4,10 +4,6 @@
 # Script to graph input data #
 ##############################
 
-###############
-### Imports ###
-###############
-
 import os
 import json
 import sys
@@ -32,7 +28,7 @@ def print_table(input_data, floats=0.0, chart_type="normal"):
     # Handle empty rankings
     if chart_type != "rarecmd":
         input_data = {k: v for k, v in input_data.items() if v.keys()}
-        if len(input_data) == 1 and chart_type in ["normal", "totals"]:
+        if len(input_data) == 1 and chart_type in ["normal", "totals", "summary", "summarytotals"]:
             chart_type = "rare"
     else:
         chart_type = "rare"
@@ -45,9 +41,15 @@ def print_table(input_data, floats=0.0, chart_type="normal"):
 
     table_data = [["", *input_data.keys()]]
 
+    user_min = 1
+    if "summary" in chart_type:
+        user_min = len(input_data)/5+1
+    if chart_type == "summarytotals":
+        chart_type = "totals"
+
     if chart_type != "twoper":
         for row in table_rows:
-            if len([item for item in [input_data[user][row] if row in input_data[user] else None for user in input_data] if item is not None]) <= 1 and chart_type != "rare":
+            if len([item for item in [input_data[user][row] if row in input_data[user] else None for user in input_data] if item is not None]) <= user_min and chart_type != "rare":
                 continue
             table_row = [float(input_data[user][row]) if row in input_data[user] else None for user in input_data]
             best_score = max([item if item is not None else 0.0 for item in table_row])

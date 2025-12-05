@@ -87,7 +87,7 @@ Uninstallation is very straightforward. To uninstall all files created outside o
 
 
 ## Docs
-The below boomdocs output was generated as of patch 2.8.5:
+The below boomdocs output was generated as of patch 2.8.8:
 
 ```text
 Commands in the .boomrc suite:
@@ -145,7 +145,7 @@ Commands in the .boomrc suite:
 		board [avg | drought | freq | full | today | top [NUM] | help | CMD | -] [USER USER ...]
 			shows boom leaderboard for all boomusers
 			users will be ordered by source date, USER args, or the space-delimited BOOMTABLECOLS env var (see `boom conf`)
-			will print avg/freq/top/drought boards by default, or:
+			will print avg/freq/top/drought boards with all commands boomed by 2+ users by default, or:
 	
 			avg
 				see and compare user avgs of all commands randomly boomed by more than one person
@@ -167,6 +167,7 @@ Commands in the .boomrc suite:
 				use this before listing input column order for the default board command
 		chat [/<cmd> | cipher | decipher | edit | env | clear | timeout | help] [COMMENT]
 			post COMMENT to the boom zone (http://<host>:BOOMPORT)
+			quote COMMENT in terminal or use env to avoid problematic chars in bash cmd line parsing
 			use `chat` alias to be faster
 			mention boomusers with @
 	
@@ -297,9 +298,12 @@ Commands in the .boomrc suite:
 ```
 
 ## Patch Notes
-The below patchnotes output was generated as of patch 2.8.5:
+The below patchnotes output was generated as of patch 2.8.8:
 
 ```text
+# 2.8.8  - board summary now shows cmds only if users/5+2 have boomed - avg/freq solo boards still just need 2 users
+# 2.8.7  - /ascii delete|rules now supported for more accessibility
+# 2.8.6  - general bug fixes, ascii doesn't need \ escaped in file now
 # 2.8.5  - site config is built with emoji preferences as well as column prefs
 # 2.8.4  - restore boombot bar integration with background updater - lastbooms and bbmremark use global tmp files
 # 2.8.3  - handle doom state in background bar updater
