@@ -30,7 +30,10 @@ cmd_list = [
     "boom board avg",
     "boom board freq",
     "boom board top",
-    "boom board drought"
+    "boom board drought",
+    "boom board avg _sitesummary_",
+    "boom board freq _sitesummary_",
+    "boom board top 10"
 ]
 
 def handle_exit():

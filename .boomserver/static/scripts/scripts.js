@@ -1,4 +1,5 @@
 let apiKey = null;
+let channel;
 
 function backendPasswdCheck(passwd) {
     return fetch('/boompass', {
@@ -79,17 +80,17 @@ function loadProgressBar() {
         let element = document.getElementById('loading-bar');
         element.innerHTML = '';
 
-        if (boomLatestContent === "")       progressCount++;
-        if (boomFavoriteContent === "")     progressCount++;
-        if (boomDroughtContent === "")      progressCount++;
-        if (boomBoardAvgContent === "")     progressCount++;
-        if (boomBoardFreqContent === "")    progressCount++;
-        if (boomBoardTopContent === "")     progressCount++;
-        if (boomBoardDroughtContent === "") progressCount++;
-        if (boomPatchnoteContent === "")    progressCount++;
-        if (boomHallContent === "")         progressCount++;
-        if (!logsLoaded)                    progressCount++;
-        if (!chatLoaded)                    progressCount++;
+        if (boomLatestContent === "")           progressCount++;
+        if (boomFavoriteContent === "")         progressCount++;
+        if (boomDroughtContent === "")          progressCount++;
+        if (boomBoardAvgSummaryContent === "")  progressCount++;
+        if (boomBoardFreqSummaryContent === "") progressCount++;
+        if (boomBoardTopContent === "")         progressCount++;
+        if (boomBoardDroughtContent === "")     progressCount++;
+        if (boomPatchnoteContent === "")        progressCount++;
+        if (boomHallContent === "")             progressCount++;
+        if (!logsLoaded)                        progressCount++;
+        if (!chatLoaded)                        progressCount++;
         
         barString = "";
         
@@ -174,7 +175,10 @@ let boomFavoriteContent = "";
 let boomDroughtContent = "";
 let boomBoardAvgContent = "";
 let boomBoardFreqContent = "";
+let boomBoardAvgSummaryContent = "";
+let boomBoardFreqSummaryContent = "";
 let boomBoardTopContent = "";
+let boomBoardTopTenContent = "";
 let boomBoardDroughtContent = "";
 let boomPatchnoteContent = "";
 let boomHallContent = "";
@@ -225,6 +229,17 @@ async function fetchBoomBoardAvg() {
     return retVal;
 }
 
+// fetch the command boom average summary board
+async function fetchBoomBoardAvgSummary() {
+    const data = await boomFetch("/run_boom_board_command", { boardcmd : "avg-_sitesummary_" });
+
+    let retVal = replaceBoomNumbers(data.output);
+
+    boomBoardAvgSummaryContent = retVal;
+
+    return retVal;
+}
+
 // fetch the command boom frequency board
 async function fetchBoomBoardFreq() {
     const data = await boomFetch("/run_boom_board_command", { boardcmd : "freq" });
@@ -236,6 +251,17 @@ async function fetchBoomBoardFreq() {
     return retVal;
 }
 
+// fetch the command boom frequency summary board
+async function fetchBoomBoardFreqSummary() {
+    const data = await boomFetch("/run_boom_board_command", { boardcmd : "freq-_sitesummary_" });
+
+    let retVal = replaceBoomNumbers(data.output);
+
+    boomBoardFreqSummaryContent = retVal;
+
+    return retVal;
+}
+
 // fetch the top 5 command board
 async function fetchBoomBoardTop() {
     const data = await boomFetch("/run_boom_board_command", { boardcmd : "top" });
@@ -244,6 +270,17 @@ async function fetchBoomBoardTop() {
 
     boomBoardTopContent = retVal;
     
+    return retVal;
+}
+
+// fetch the top 10 command board
+async function fetchBoomBoardTopTen() {
+    const data = await boomFetch("/run_boom_board_command", { boardcmd : "top-10" });
+
+    let retVal = data.output;
+
+    boomBoardTopTenContent = retVal;
+
     return retVal;
 }
 
@@ -358,7 +395,7 @@ function updateContents() {
         }
         else {
             outputText += '<h2 style="text-align: center;">Boom Average</h2>';
-            outputText += boomBoardAvgContent;
+            outputText += boomBoardAvgSummaryContent;
         }
     }
     if ([ "all", "freq" ].includes(windowState.contentRender)) {
@@ -381,12 +418,17 @@ function updateContents() {
         }
         else {
             outputText += '<h2 style="text-align: center;">Boom Frequency</h2>';
-            outputText += boomBoardFreqContent;
+            outputText += boomBoardFreqSummaryContent;
         }
     }
     if ([ "all", "info" ].includes(windowState.contentRender)) {
         outputText += '<h2 style="text-align: center;">Boom Top Commands</h2>';
-        outputText += boomBoardTopContent;
+        if (windowState.contentRender === "all") { // top 10 in info mode
+            outputText += boomBoardTopContent;
+        }
+        else {
+            outputText += boomBoardTopTenContent;
+        }
     }
     if ([ "all", "info" ].includes(windowState.contentRender)) {
         outputText += '<h2 style="text-align: center;">Boom Drought</h2>';
@@ -410,7 +452,10 @@ async function fetchCommandOutput() {
         fetchBoomDrought(),
         fetchBoomBoardAvg(),
         fetchBoomBoardFreq(),
+        fetchBoomBoardAvgSummary(),
+        fetchBoomBoardFreqSummary(),
         fetchBoomBoardTop(),
+        fetchBoomBoardTopTen(),
         fetchBoomBoardDrought(),
         fetchBoomPatch(),
         fetchBoomHall(),
@@ -547,12 +592,12 @@ async function fetchBoommeterFileContent() {
 }
 
 window.onload = function() {
+    createChannelConnection();
+
     if (checkCookie('boomToken')) {
         apiKey = getCookie('boomToken');
 
         loadContent();
-
-        createChannelConnection();
     } else {
         document.getElementById('passwordContainer').style.display = 'flex';
 

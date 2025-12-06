@@ -1,5 +1,5 @@
 function createChannelConnection() {
-    const channel = new BroadcastChannel("customization_popup_channel");
+    channel = new BroadcastChannel("customization_popup_channel");
 
     channel.addEventListener('message', (event) => {
         console.log('Received message:', event.data);
@@ -9,7 +9,7 @@ function createChannelConnection() {
 }
 
 function createChannelConnectionOnPopup() {
-    const channel = new BroadcastChannel("customization_popup_channel");
+    channel = new BroadcastChannel("customization_popup_channel");
 
     channel.addEventListener('message', (event) => {
         console.log('Received message:', event.data);
@@ -17,8 +17,6 @@ function createChannelConnectionOnPopup() {
 }
 
 function publishToChannel(message) {
-    const channel = new BroadcastChannel("customization_popup_channel");
-
     channel.postMessage(message);
     saveTheme({type:"SAVED",id:message})
 }

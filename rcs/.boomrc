@@ -211,6 +211,7 @@
 # 2.8.6  - general bug fixes, ascii doesn't need \ escaped in file now
 # 2.8.7  - /ascii delete|rules now supported for more accessibility
 # 2.8.8  - board summary now shows cmds only if users/5+2 have boomed - avg/freq solo boards still just need 2 users
+# 2.8.9  - support shorter board summary site-side (also site update for top 10 in info page)
 
 DOOMBOOM=
 # Multiple ways to have BOOMCFGFILE set:
@@ -1158,12 +1159,14 @@ boom() {
         board_freq_)
           local modifier=totals
           if [ $(wc -l <<<"$userList" | awk '{print $1}') -eq 1 ]; then modifier=rare; fi
+          if [[ "$3" == "_sitesummary_" ]]; then modifier=summarytotals; fi
           echo
           /$BOOMUSERDIR/$BOOMBOSS/$BOOMINSTALL/.boomtables.py "$(_jsonifyboomfreqs | sed -re s/,?erase//g)" 3.0 $modifier
         ;;
         board_avg_)
           local modifier=
           if [ $(wc -l <<<"$userList" | awk '{print $1}') -eq 1 ]; then modifier=rare; fi
+          if [[ "$3" == "_sitesummary_" ]]; then modifier=summary; fi
           echo
           /$BOOMUSERDIR/$BOOMBOSS/$BOOMINSTALL/.boomtables.py "$(_jsonifyboomavgs | sed -re s/,?erase//g)" .2 $modifier
         ;;
@@ -1656,21 +1659,21 @@ boom() {
     patchnotes_)
       case "patchnotes_$2_" in
         patchnotes_latest_)
-          cat $BASH_SOURCE | sed -n '/^# [0-9]\.[0-9X]\.[0-9X]\+ .*$/p' | tail -n ${3:-1}
+          cat $BASH_SOURCE 2>/dev/null | sed -n '/^# [0-9]\.[0-9X]\.[0-9X]\+ .*$/p' | tail -n ${3:-1}
         ;;
         patchnotes__)
-          cat $BASH_SOURCE | sed -n '/^# [0-9]\.[0-9X]\.[0-9X]\+ .*$/p' | tail -n 1
+          cat $BASH_SOURCE 2>/dev/null | sed -n '/^# [0-9]\.[0-9X]\.[0-9X]\+ .*$/p' | tail -n 1
         ;;
         patchnotes_full_) ;&
         patchnotes_all_)
-          cat $BASH_SOURCE | sed -n '/^# [0-9]\.[0-9X]\.[0-9X]\+ .*$/p'
+          cat $BASH_SOURCE 2>/dev/null | sed -n '/^# [0-9]\.[0-9X]\.[0-9X]\+ .*$/p'
         ;;
         patchnotes_help_)
           boomdocs boom-patchnotes
         ;;
         *)
           if [ "$2" == "current" ]; then
-            echo -n " " && cat $BASH_SOURCE | sed -n '/^# [0-9]\.[0-9X]\.[0-9X]\+ .*$/p' | tail -n 1 | awk '{print $2}'
+            echo -n " " && cat $BASH_SOURCE 2>/dev/null| sed -n '/^# [0-9]\.[0-9X]\.[0-9X]\+ .*$/p' | tail -n 1 | awk '{print $2}'
           else
             echo -e "Error: option \"$2\" not found"
             boomdocs boom-patchnotes

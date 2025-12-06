@@ -1,3 +1,4 @@
+let channel;
 createChannelConnectionOnPopup();
 
 buildDropdown();
