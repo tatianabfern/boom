@@ -50,7 +50,7 @@ Check out other optional BOOMCFGFILE and user-defined config variables using the
 
 ## RC Breakdown
 
-There are currently 5 .boom\*rc files sourced by default in the boom rc suite. Here is a list of all 7 .boom\*rc files and a brief description of what they each contain:
+There are currently 5 .boom\*rc files sourced by default in the boom rc suite. Here is a list of all .boom\*rc files and a brief description of what they each contain:
 
 |File|Description|Default|
 |--|--|--|

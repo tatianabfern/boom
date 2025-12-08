@@ -147,6 +147,10 @@ def run_boom_patchnotes_current_command():
 def run_boom_hall_command():
     return run_simple_command('boom hall && echo')
 
+@app.route('/get_boom_emoji', methods=['POST'])
+def get_boom_emoji():
+    return run_simple_command('echo -n \$_BE_BOOM')
+
 #############################
 
 @app.route('/read_log_file', methods=['POST'])

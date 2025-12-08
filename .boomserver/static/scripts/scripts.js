@@ -80,6 +80,7 @@ function loadProgressBar() {
         let element = document.getElementById('loading-bar');
         element.innerHTML = '';
 
+        if (boomEmoji === "")                   progressCount++;
         if (boomLatestContent === "")           progressCount++;
         if (boomFavoriteContent === "")         progressCount++;
         if (boomDroughtContent === "")          progressCount++;
@@ -94,7 +95,7 @@ function loadProgressBar() {
         
         barString = "";
         
-        for (i =0; i < 11; i++) {
+        for (i =0; i < 12; i++) {
             barString += i < progressCount ? "💣" : "💥";
         }
 
@@ -170,6 +171,7 @@ async function boomFetch(endpoint, body = {}) {
     return data;
 }
 
+let boomEmoji = "";
 let boomLatestContent = "";
 let boomFavoriteContent = "";
 let boomDroughtContent = "";
@@ -182,6 +184,21 @@ let boomBoardTopTenContent = "";
 let boomBoardDroughtContent = "";
 let boomPatchnoteContent = "";
 let boomHallContent = "";
+
+// fetch boom emoji
+async function fetchBoomEmoji() {
+    const data = await boomFetch("/get_boom_emoji");
+
+    let retVal = data.output;
+
+    boomEmoji = retVal;
+    const header = document.getElementById("boom-header");
+    header.innerHTML = `${boomEmoji.repeat(5)} Welcome to the <span class="hover-red"> BOOM </span> zone! ${boomEmoji.repeat(5)}`;
+    const enc = encodeURIComponent(boomEmoji);
+    document.body.style.cursor = `url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 100 100'%3E%3Ctext y='78' font-size='82'%3E${enc}%3C/text%3E%3C/svg%3E") 16 16, auto`;
+
+    return retVal;
+}
 
 // the user with the latest random boom
 async function fetchBoomLatest() {
@@ -447,18 +464,19 @@ function updateContents() {
 
 async function fetchCommandOutput() {
     await Promise.all([
+        fetchBoomEmoji(),
         fetchBoomLatest(),
         fetchBoomFavorite(),
         fetchBoomDrought(),
-        fetchBoomBoardAvg(),
-        fetchBoomBoardFreq(),
         fetchBoomBoardAvgSummary(),
         fetchBoomBoardFreqSummary(),
         fetchBoomBoardTop(),
-        fetchBoomBoardTopTen(),
         fetchBoomBoardDrought(),
         fetchBoomPatch(),
         fetchBoomHall(),
+        fetchBoomBoardAvg(),
+        fetchBoomBoardFreq(),
+        fetchBoomBoardTopTen(),
     ]).then((values) => {
         // console.log(values);
         setTimeout(fetchCommandOutput,10000);

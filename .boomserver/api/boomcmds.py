@@ -33,7 +33,8 @@ cmd_list = [
     "boom board drought",
     "boom board avg _sitesummary_",
     "boom board freq _sitesummary_",
-    "boom board top 10"
+    "boom board top 10",
+    "echo -n \$_BE_BOOM"
 ]
 
 def handle_exit():

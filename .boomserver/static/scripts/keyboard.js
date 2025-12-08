@@ -18,7 +18,13 @@ document.addEventListener('keydown', function(event) {
     }
 
     if (event.key === "c"  && fullyLoaded) {
-        window.open("popup", "_blank", "width=600,height=400");
+        const popup = window.open("popup", "_blank", "width=600,height=400");
+        popup.addEventListener("load", () => {
+            popup.postMessage(
+                { "boomEmoji": boomEmoji },
+                "*"
+            );
+        });
     }
 
     if (event.key === "b" && fullyLoaded) {
