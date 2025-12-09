@@ -2,8 +2,8 @@ name: Build & Publish Docker Image
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches:
+      - '**'
   pull_request:
 
 jobs:
@@ -15,22 +15,10 @@ jobs:
       packages: write
 
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Extract metadata
-        id: meta
-        uses: docker/metadata-action@v5
+      - name: Checkout repository
+        uses: actions/checkout@v4
         with:
-          platforms: linux/amd64,linux/arm64
-          images: ghcr.io/${{ github.repository_owner }}/boom
-          tags: |
-            type=ref,event=tag
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
-            type=ref,event=branch
-            type=ref,event=pr
-            type=raw,value=edge,enable=${{ github.ref == 'refs/heads/main' }}
+          fetch-depth: 0 # Full history for git inside container
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -45,12 +33,32 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push
+      - name: Set tags and push flag
+        id: docker-meta
+        env:
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          OWNER=${OWNER,,}
+
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            IMAGE_TAG=${GITHUB_REF#refs/tags/}
+            DO_PUSH=true
+          else
+            IMAGE_TAG=dev-${SHORT_SHA}
+            DO_PUSH=false
+          fi
+
+          echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
+          echo "DO_PUSH=$DO_PUSH" >> $GITHUB_ENV
+          echo "OWNER=$OWNER" >> $GITHUB_ENV
+
+      - name: Build Docker image
         uses: docker/build-push-action@v6
         with:
-          context: ./container
+          context: .
           file: ./container/Dockerfile
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          push: ${{ env.DO_PUSH }}
+          tags: ghcr.io/${{ env.OWNER }}/boom:${{ env.IMAGE_TAG }}
+          platforms: linux/amd64,linux/arm64
 
