@@ -212,8 +212,27 @@
 # 2.8.7  - /ascii delete|rules now supported for more accessibility
 # 2.8.8  - board summary now shows cmds only if users/5+2 have boomed - avg/freq solo boards still just need 2 users
 # 2.8.9  - support shorter board summary site-side (also site update for top 10 in info page)
+# 2.8.10 - check if user is root and if USER is unset on source
 
 DOOMBOOM=
+if [ -z "$USER" ]; then
+  if [ "$BOOMWARN" != "no" ]; then
+    echo boomrc: WARNING: USER is unset, defaulting to $(whoami)
+    echo boomrc: Suppress this warning by sourcing with \`BOOMWARN=no source $BASH_SOURCE\` or setting USER in \$BOOMCFGFILE
+  fi
+  USER="$(whoami)"
+fi
+if [[ "$USER" == "root" ]]; then
+  if [ "$BOOMWARN" != "no" ]; then
+    echo boomrc: WARNING: BOOM has not been thoroughly tested in a root install. Please, know what you\'re doing.
+    if [[ ! " / " =~ " $BOOMUSERDIR " ]]; then
+      echo boomrc: WARNING: Be mindful that a multi-user environment will not work in a root install unless all users are accessible at /.
+      echo
+    fi
+    echo boomrc: Suppress this warning by sourcing with \`BOOMWARN=no source $BASH_SOURCE\`
+  fi
+fi
+
 # Multiple ways to have BOOMCFGFILE set:
 #   - Have users source file that sets it and then sources this (recommended)
 #   - Have users set it to point to boss'  config before sourcing
@@ -955,7 +974,7 @@ alias boomhelp="_boomIntroTxt flag"
 # "\t${B}boom-board${N} [${B}avg${N} | ${B}drought${N} | ${B}freq${N} | ${B}full${N} | ${B}today${N} | ${B}top${N} [NUM] | ${B}help${N} | CMD | ${B}-${N}] [USER USER ...]";
 # "\t\tshows boom leaderboard for all boomusers";
 # "\t\tusers will be ordered by source date, USER args, or the space-delimited BOOMTABLECOLS env var (see \`boom conf\`)";
-# "\t\twill print avg/freq/top/drought boards with all commands boomed by $(userCount=$(wc -l /$BOOMUSERDIR/$BOOMBOSS/$BOOMINSTALL/.boomusers 2>/dev/null | awk '{print $1}') echo $((${userCount-1}/5+2)))+ users by default, or:";
+# "\t\twill print avg/freq/top/drought boards with all commands boomed by $(($({ [ -z $BOOMTABLECOLS ] && { wc -l /$BOOMUSERDIR/$BOOMBOSS/$BOOMINSTALL/.boomusers 2>/dev/null || echo 1; } || { wc -w <<<"$BOOMTABLECOLS"; }; } | awk '{print $1}')/4+2))+ users by default, or:";
 # "\n\t\t${B}avg${N}\n\t\t\tsee and compare user avgs of all commands randomly boomed by more than one person";
 # "\t\t${B}drought${N}\n\t\t\tsee and compare longest & current droughts";
 # "\t\t${B}freq${N}\n\t\t\tsee and compare boom frequency for all commands randomly boomed by more than one person";

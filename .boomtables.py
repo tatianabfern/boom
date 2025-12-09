@@ -43,7 +43,7 @@ def print_table(input_data, floats=0.0, chart_type="normal"):
 
     user_min = 1
     if "summary" in chart_type:
-        user_min = len(input_data)/5+1
+        user_min = len(input_data)/4+1
     if chart_type == "summarytotals":
         chart_type = "totals"
 

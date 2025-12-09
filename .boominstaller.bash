@@ -4,6 +4,12 @@ echo "                💥💥💥💥💥 Welcome to the boom installer  💥�
 echo
 echo "This script will set you up as a BOOMBOSS to run a local installation of the .boomrc!"
 
+if [ -z "$USER" ]; then
+  echo .boominstaller: WARNING: USER is unset. The .boomrc expects the USER env var to be set before source. Defaulting to $(whoami) and continuing...
+  echo .boominstaller: WARNING: Either set USER in \$BOOMCFGFILE or set BOOMWARN=no before sourcing to suppress .boomrc warnings.
+  USER="$(whoami)"
+fi
+
 # These variables are horribly named
 # BOOMINSTALL will be where personal boom data / boss data for everyone is stored
 # BOOMRCS will be EXPECTED_BOOMRCS/rcs, aka the path to .boomrc
