@@ -213,6 +213,7 @@
 # 2.8.8  - board summary now shows cmds only if users/5+2 have boomed - avg/freq solo boards still just need 2 users
 # 2.8.9  - support shorter board summary site-side (also site update for top 10 in info page)
 # 2.8.10 - check if user is root and if USER is unset on source
+# 2.8.11 - bar exit handling improved to prevent lingering bars
 
 DOOMBOOM=
 if [ -z "$USER" ]; then
@@ -2851,9 +2852,11 @@ if [ -r "/$BOOMUSERDIR/$BOOMBOSS/$BOOMRCS/.boomdevrc" ]; then
 fi
 
 # Next up
-#TODO: update site with customizable order/boards - in work
+#TODO: /chat poll
 
 # Short term todos - roughly in order
+#TODO: Container start script and boomdev functions - can hopefully run site in container, simulate user counts, etc
+#TODO: boom goal
 #TODO: bar BTODAY resets if new day?
 #TODO: boom quest items - implementation of rewards/collectibles - this gamification is gonna be 3.0 probably
 #TODO: boombar - boombar notify? idea for temporary changes to boombar that revert back to prefix after x commands

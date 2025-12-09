@@ -68,7 +68,8 @@ boombar() {
     trap - EXIT # untrap exit
 
     if [[ -n "$BOOMBARCONTENTFILE" ]]; then
-      \rm $BOOMBARCONTENTFILE &>/dev/null
+      # Kill any possible lingering bars
+      \rm /tmp/boombar.*.${BOOMBAR_TTY////.} &>/dev/null
       unset BOOMBARCONTENTFILE
     fi
   }
@@ -90,7 +91,7 @@ boombar() {
     ;;
     _)
       if [[ -z "$BOOMBARSTATE" ]]; then
-        export BOOMBARCONTENTFILE="$(mktemp --tmpdir boombar.$$.XXX)"
+        export BOOMBARCONTENTFILE="$(mktemp --tmpdir boombar.$$.XXX.${BOOMBAR_TTY////.})"
         chmod 644 $BOOMBARCONTENTFILE &>/dev/null
         echo -n started > $BOOMBARCONTENTFILE
         shopt -s checkwinsize

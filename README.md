@@ -87,7 +87,7 @@ Uninstallation is very straightforward. To uninstall all files created outside o
 
 
 ## Docs
-The below boomdocs output was generated as of patch 2.8.9:
+The below boomdocs output was generated as of patch 2.8.11:
 
 ```text
 Commands in the .boomrc suite:
@@ -298,9 +298,11 @@ Commands in the .boomrc suite:
 ```
 
 ## Patch Notes
-The below patchnotes output was generated as of patch 2.8.9:
+The below patchnotes output was generated as of patch 2.8.11:
 
 ```text
+# 2.8.11 - bar exit handling improved to prevent lingering bars
+# 2.8.10 - check if user is root and if USER is unset on source
 # 2.8.9  - support shorter board summary site-side (also site update for top 10 in info page)
 # 2.8.8  - board summary now shows cmds only if users/5+2 have boomed - avg/freq solo boards still just need 2 users
 # 2.8.7  - /ascii delete|rules now supported for more accessibility

@@ -8,6 +8,12 @@ if [ "$0" != "${0##*/}" ]; then
   exit 1
 fi
 
+if [ -z "$USER" ]; then
+  echo .siteconfig: WARNING: USER is unset. The .boomrc expects the USER env var to be set before source. Defaulting to $(whoami) and continuing...
+  echo .siteconfig: WARNING: Either set USER in \$BOOMCFGFILE or set BOOMWARN=no before sourcing to suppress .boomrc warnings.
+  USER="$(whoami)"
+fi
+
 if [ ! -d "$EXPECTED_BOOMRCS" ]; then
   echo $EXPECTED_BOOMRCS does not exist - change this script to run where boom is cloned
   exit 1
