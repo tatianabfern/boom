@@ -1,0 +1,26 @@
+name: Clean up old tags
+
+on:
+  schedule:
+    - cron: '0 0 * * 0' # Runs every Sunday at midnight
+  workflow_dispatch:    # Can also trigger manually
+
+jobs:
+  cleanup-tags:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Fetch all history to see tags
+
+      - name: Delete old tags
+        run: |
+          # List tags older than 30 days
+          OLD_TAGS=$(git for-each-ref --sort=creatordate --format '%(refname:short) %(creatordate:unix)' refs/tags | \
+                     awk -v cutoff=$(date -d '30 days ago' +%s) '$2 < cutoff {print $1}')
+          
+          for tag in $OLD_TAGS; do
+            echo "Deleting tag $tag"
+            git tag -d $tag
+            git push origin :refs/tags/$tag
+          done
