@@ -7,7 +7,7 @@ The goal of this project is to bring the boom to the dev environment. At its pur
 To install this repo in your local environment, simply:
 ```bash
 cd ${XDG_CONFIG_HOME:-~/.config}
-git clone git@github.com:Vision940/boom
+git clone git@github.com:Vision940/boom # Could also clone with https or unzip repo .zip here
 cd boom
 bash .boominstaller.bash
 ```
@@ -61,6 +61,7 @@ There are currently 5 .boom\*rc files sourced by default in the boom rc suite. H
 |.boomdocsrc|This is a pretty essential rc that enables the commented documentation above each function/alias in the .boomrc to be parsed and printed to the terminal like a --help text.|Sourced|
 |.boomenvrc|This is a simple rc that enables boom commands to be run without `boom` in front of them. It is enabled with `boom env` after sourcing `.boomrc`|Not Sourced|
 |.boomholidayrc|This rc is an optional rc that adds festive themes throughout the year!|Sourced|
+|.boompollrc|This rc includes necessary code for the `boom poll` command to function.|Sourced|
 |.boomsimplerc|This is the rc that enables boom sessions through `boomexec` and `boomssh`. It is essential if you plan to take the boom with you when you travel to other machines/containers.|Sourced|
 
 Again, the recommended way to source these is by creating a custom .boomrc file in an easy-to-access place that sets BOOMCFGFILE and sources the repo's .boomrc file.
@@ -69,7 +70,9 @@ Again, the recommended way to source these is by creating a custom .boomrc file 
 
 To update boom, simply `git pull` the latest changes, read the patch notes, and re-source the `.boomrc` to make sure nothing has changed.
 
-If the site is in use and the site files have changed since the last update, copy over the changed files to the BOOMINSTALL location. Alternatively, backup `data/` in `BOOMINSTALL/.boomserver` and re-run the `.siteconfig.bash` script. This will set up the server fresh based on the current state of the generic repo server files, and you can move `data/` back to restore the configs.
+If the site is in use and the site files have changed since the last update, re-run the `.siteconfig.bash` script. This will set up the server fresh based on the current state of the generic repo server files, and it will preserve the server's local `data/` directory.
+
+If installing with a downloaded .zip of the repo, `rsync -av --delete <unzipped repo dir> <install dir>` should work well to update the existing install without git.
 
 ## Requirements
 
@@ -87,7 +90,7 @@ Uninstallation is very straightforward. To uninstall all files created outside o
 
 
 ## Docs
-The below boomdocs output was generated as of patch 2.8.11:
+The below boomdocs output was generated as of patch 2.8.12:
 
 ```text
 Commands in the .boomrc suite:
@@ -231,6 +234,22 @@ Commands in the .boomrc suite:
 			print latest boomrc patch notes
 			use latest keyword to show NUM (default 1) latest lines of patch notes
 			use full keyword to show all patch notes
+		poll [create | list | print [TITLE] | vote [TITLE] | help]
+			create, vote on, and view chat polls for all boomusers
+			will run list by default, or:
+	
+			create
+				enter an environment to build a poll to put in chat - env commands are displayed with `?`
+			list
+				list all polls found in the current chat session, as well as vote counts and expiration dates
+			print [TITLE]
+				print out most recent poll or poll described by TITLE
+				TITLE will complete in cmd line with chat emoji completion available
+			vote [TITLE]
+				vote on most recent poll or poll described by TITLE
+				TITLE will complete in cmd line with chat emoji completion available
+			help
+				show boom poll help
 		silent
 			toggles silent mode where _boommeter will still run but nothing will be printed
 			this is useful if users don't want to doom but also don't want output
@@ -298,9 +317,10 @@ Commands in the .boomrc suite:
 ```
 
 ## Patch Notes
-The below patchnotes output was generated as of patch 2.8.11:
+The below patchnotes output was generated as of patch 2.8.12:
 
 ```text
+# 2.8.12 - chat env tracks history and can use up/down arrows to navigate, some 3.0.0 features in beta
 # 2.8.11 - bar exit handling improved to prevent lingering bars
 # 2.8.10 - check if user is root and if USER is unset on source
 # 2.8.9  - support shorter board summary site-side (also site update for top 10 in info page)

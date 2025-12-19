@@ -16,7 +16,7 @@ BOOMBAR_LASTCMD="$([[ -r $_boomStreak && -n $(cat $_boomStreak) ]] && { cat $_bo
 
 # Including ssh/exec here because the handling is unreliable in those cases
 _in_altscreen() {
-  ps -t "${BOOMBAR_TTY#/dev/}" -o state=,comm= | grep -qE '^[RS].*(ssh|sudo|docker|podman|sl|minicom|nano|vim|screen|top|less|man)$'
+  ps -t "${BOOMBAR_TTY#/dev/}" -o state=,comm= | grep -qE '^[RS].*(ssh|sudo|docker|podman|sl|minicom|nano|vim|info|screen|top|less|man)$'
 }
 
 ###Function boombar

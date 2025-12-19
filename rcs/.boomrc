@@ -214,6 +214,7 @@
 # 2.8.9  - support shorter board summary site-side (also site update for top 10 in info page)
 # 2.8.10 - check if user is root and if USER is unset on source
 # 2.8.11 - bar exit handling improved to prevent lingering bars
+# 2.8.12 - chat env tracks history and can use up/down arrows to navigate, some 3.0.0 features in beta
 
 DOOMBOOM=
 if [ -z "$USER" ]; then
@@ -815,11 +816,11 @@ _boomquest() {
     # Assumes under 19 users
     cmds=($(echo "${cmds[@]}" | sed -e 's/ /\n/g' | sort | uniq -c | grep "^[ ]\+[$minusers-9]" | awk '{print $2}'))
     if [[ ${#cmds[@]} -gt 0 ]]; then
-      echo ${cmds[$RANDOM % ${#cmds[@]}]} | openssl dgst -sha256 | awk '{print $2}' > $_boomQuest
+      openssl dgst -sha256 <<<"${cmds[$RANDOM % ${#cmds[@]}]}" | awk '{print $2}' > $_boomQuest
       echo "boombot: $_BE_BOT A new boom quest is active!" >> $_boommeterLog
     fi
   }
-  if [ "$(cat $_boomQuest)" == "$(echo $1 | openssl dgst -sha256 | awk '{print $2}')" ]; then
+  if [ "$(cat $_boomQuest)" == "$(openssl dgst -sha256 <<<"$1" | awk '{print $2}')" ]; then
     _rerollquest
     echo 2
     return
@@ -1071,6 +1072,22 @@ alias boomhelp="_boomIntroTxt flag"
 # "\t\tuse latest keyword to show NUM (default 1) latest lines of patch notes";
 # "\t\tuse full keyword to show all patch notes";
 ###
+###SubFunction _boom-poll
+###ExcFunction _boom-poll-create
+###ExcFunction _boom-poll-list
+###ExcFunction _boom-poll-print
+###ExcFunction _boom-poll-vote
+# "\t${B}boom-poll${N} [${B}create${N} | ${B}list${N} | ${B}print${N} [TITLE] | ${B}vote${N} [TITLE] | ${B}help${N}]";
+# "\t\tcreate, vote on, and view chat polls for all boomusers";
+# "\t\twill run list by default, or:";
+# "\n\t\t${B}create${N}\n\t\t\tenter an environment to build a poll to put in chat - env commands are displayed with \`?\`";
+# "\t\t${B}list${N}\n\t\t\tlist all polls found in the current chat session, as well as vote counts and expiration dates";
+# "\t\t${B}print${N} [TITLE]\n\t\t\tprint out most recent poll or poll described by TITLE";
+# "\t\t\tTITLE will complete in cmd line with chat emoji completion available";
+# "\t\t${B}vote${N} [TITLE]\n\t\t\tvote on most recent poll or poll described by TITLE";
+# "\t\t\tTITLE will complete in cmd line with chat emoji completion available";
+# "\t\t${B}help${N}\n\t\t\tshow boom poll help";
+###
 ###SubFunction _boom-silent
 # "\t${B}boom-silent${N}\n\t\ttoggles silent mode where _boommeter will still run but nothing will be printed";
 # "\t\tthis is useful if users don't want to doom but also don't want output";
@@ -1276,7 +1293,7 @@ boom() {
           # Check if user means it
           local respY
           read -p "Really clear chat [y/N]? " respY
-          if [[ ! " y Y yes " =~ " $respY " ]]; then return; fi
+          if [[ ! " y yes yup fs " =~ " ${respY,,} " ]]; then return; fi
 
           cat $_boommeterLog > $_boommeterLog-$(TZ=$BOOMTZ date -u +%s)
           echo "$USER reset the boom chat" > $_boommeterLog
@@ -1335,7 +1352,7 @@ boom() {
               found=yes
               if [ $(sed -ne '\|^\(\[EDITED\] \)\{0,1\}'"$USER"':  \?'"${lastline[*]:1}"'$|p' $_boommeterLog | wc -l) -gt 1 ]; then echo Error: More than one line matches the previous chat - cannot edit; return; fi
               read -p "$(sed -ne '\|^\(\[EDITED\] \)\{0,1\}'"$USER"':  \?'"${lastline[*]:1}"'$|s|\[EDITED\] ||;\|^\(\[EDITED\] \)\{0,1\}'"$USER"':  \?'"${lastline[*]:1}"'$|s|\('"${prevwords[*]}"'\) '"$3"'|\1 '"$4"'|p' $_boommeterLog) -- look right [y/N]? " respY
-              if [[ " y Y yes " =~ " $respY " ]]; then
+              if [[ " y yes yup fs " =~ " ${respY,,} " ]]; then
                 sed -i '\|^\(\[EDITED\] \)\{0,1\}'"$USER"':  \?'"${lastline[*]:1}"'$|s|\[EDITED\] ||;\|^\(\[EDITED\] \)\{0,1\}'"$USER"':  \?'"${lastline[*]:1}"'$|s|\('"$USER"': '"${prevwords[*]:+${prevwords[*]} }"'\)'"$3"'|[EDITED] \1'"$4"'|' $_boommeterLog
 
                 # Mention users
@@ -1368,12 +1385,88 @@ boom() {
           local userInput _envcall_
           local lastchatupdate=$(stat -c %Y $_boommeterLog)
           local lastchattested="$(tail -n 1 $_boommeterLog)"
+
+          local __chat_env_hist_idx=0
+          local histfile=/tmp/.chatenvhist-$USER
+          local currfile=/tmp/.chatenvcurridx-$USER
+
+          if [[ ! -f "$histfile" ]]; then
+            echo -n '' > $histfile
+          else
+            __chat_env_hist_idx=$(wc -l $histfile | awk '{print $1}')
+          fi
+
+          echo -n "$__chat_env_hist_idx" > /tmp/.chatenvcurridx-$USER
+
+          # History handling
+          __chat_env_hist_up() {
+            [[ -z "$USER" ]] && USER=$(whoami)
+            histfile=/tmp/.chatenvhist-$USER
+            idxfile=/tmp/.chatenvcurridx-$USER
+            currfile=/tmp/.chatenvcurrline-$USER
+
+            __chat_env_idxs=($(awk '{print $1}' $histfile))
+            while read line; do
+              __chat_env_hist+=("${line#* }")
+            done < $histfile
+            __chat_env_idx=$(cat $idxfile)
+
+            if [[ $__chat_env_idx -eq ${#__chat_env_idxs[@]} ]]; then
+              echo -n $READLINE_LINE > $currfile
+            fi
+
+            test ${#__chat_env_idxs[@]} -gt 0 || return
+            test $((__chat_env_idx-1))  -ge 0 || return
+            echo -n "$((__chat_env_idx-1))" > $idxfile
+
+            READLINE_LINE="${__chat_env_hist[$(cat $idxfile)]}"
+            READLINE_POINT=${#READLINE_LINE}
+          }
+          __chat_env_hist_down() {
+            [[ -z "$USER" ]] && USER=$(whoami)
+            histfile=/tmp/.chatenvhist-$USER
+            idxfile=/tmp/.chatenvcurridx-$USER
+            currfile=/tmp/.chatenvcurrline-$USER
+
+            __chat_env_idxs=($(awk '{print $1}' $histfile))
+            while read line; do
+              __chat_env_hist+=("${line#* }")
+            done < $histfile
+            __chat_env_idx=$(cat $idxfile)
+
+            if test $((__chat_env_idx+1)) -eq ${#__chat_env_idxs[@]}; then
+              echo -n "${#__chat_env_idxs[@]}" > $idxfile
+
+              READLINE_LINE="$(cat $currfile 2>/dev/null)"
+              READLINE_POINT=${#READLINE_LINE}
+
+              \rm $currfile &>/dev/null
+              return
+            elif test $((__chat_env_idx+1)) -gt ${#__chat_env_idxs[@]}; then
+              return
+            fi
+
+            echo -n "$((__chat_env_idx+1))" > $idxfile
+
+            READLINE_LINE="${__chat_env_hist[$(cat $idxfile)]}"
+            READLINE_POINT=${#READLINE_LINE}
+          }
+
           _chat_env_read_with_completion() {
+            [[ -z "$USER" ]] && USER=$(whoami)
+
             local hostfile=/tmp/.boomhostcompletion
+            local currfile=/tmp/.chatenvcurrline-$USER
+
+            [ -f $currfile ] && \rm $currfile &>/dev/null
             set -o emacs
             unset HOSTFILE
             export HOSTFILE=$hostfile
-            bind '"\e[A": ""' # don't allow up arrow
+            bind -r "\C-r" # unbind reverse-i search
+            bind -x '"\e[A":"__chat_env_hist_up"' # up goes up in history
+            bind -x '"\e[B":"__chat_env_hist_down"' # down goes down in history
+            bind -x '"\e[5~":"__chat_env_hist_up"' # rebind PgUp
+            bind -x '"\e[6~":"__chat_env_hist_down"' # rebind PgDown
             bind '"\C-g":complete-hostname' # complete from dynamically generated hostfile
             bind '"\C-xy":possible-hostname-completions' # print completions if multiple options
             bind -x '"\C-xh":"__chat_env_comp /tmp/.boomhostcompletion"' # generate hostfile
@@ -1423,7 +1516,7 @@ boom() {
 
             # Build out hosts file to complete from for complete-hostname
             echo -n '' >$hostfile
-            for word in $(echo ${COMPREPLY[@]}); do [[ ! "$word" =~ ^"@" ]] && echo 0 $word >>$hostfile; done # 0 in case comp starts with num
+            for word in ${COMPREPLY[@]}; do [[ ! "$word" =~ ^"@" ]] && echo 0 $word >>$hostfile; done # 0 in case comp starts with num
 
             # Get bash to call sv_hostfile to re-init hostfile for completion with new options
             unset HOSTFILE
@@ -1433,10 +1526,18 @@ boom() {
           while :; do
             userInput=$(_chat_env_read_with_completion) # must be in subshell so bind/histfile things don't break env
             _update_and_print_chat absolute
-            if [[ -n "$userInput" && " h help --help -h -help " =~ "$userInput" ]]; then
+
+            if [[ -n "$userInput" ]]; then
+              __chat_env_hist_idx=$(wc -l $histfile | awk '{print $1}')
+              echo "${__chat_env_hist_idx:-0} $userInput" >> $histfile
+              __chat_env_hist_idx=$(wc -l $histfile | awk '{print $1}')
+            fi
+            echo -n "$__chat_env_hist_idx" > /tmp/.chatenvcurridx-$USER
+
+            if [[ -n "$userInput" && " h help --help -h -help " =~ " $userInput " ]]; then
               _chatHelpTxt | sed -e 's|^|   |'
               echo
-              echo "   \"?\" will open boom-chat help"
+              echo "   \"?\" will print boom-chat help"
               echo "   \"exit\" will exit the chat env"
             elif [[ "$userInput" == "?" ]]; then
               boomdocs boom-chat
@@ -1460,6 +1561,9 @@ boom() {
               break
             fi
           done
+
+          \rm /tmp/.boomhostcompletion &>/dev/null
+          \rm /tmp/.pollenvcurrline-$USER &>/dev/null
         ;;
         chat_timeout_)
           if [ $(($(TZ=$BOOMTZ date -u +%s)-$(cat $_boomTimeout | tail -n 1 | awk '{print $2}'))) -ge $_BOOMDEFAULTTIMEOUT ]; then
@@ -1698,6 +1802,38 @@ boom() {
             echo -e "Error: option \"$2\" not found"
             boomdocs boom-patchnotes
           fi
+        ;;
+      esac
+    ;;
+    poll_)
+      # Implementation is in another file to de-complicate boomrc
+      if ! declare -f _boompoll &>/dev/null; then
+        # We don't expect this to happen
+        echo Error: .boompollrc not found - _boompoll is undefined
+        return
+      fi
+
+      case "poll_$2_" in
+        poll_env_) ;&
+        poll_create_)
+          _boompoll create
+        ;;
+        poll__) ;&
+        poll_list_)
+          _boompoll list
+        ;;
+        poll_print_)
+          _boompoll print ${@:3}
+        ;;
+        poll_vote_)
+          _boompoll vote ${@:3}
+        ;;
+        poll_help_)
+          _boompoll help
+        ;;
+        *)
+          echo -e "Error: option \"$2\" not found"
+          _boompoll help
         ;;
       esac
     ;;
@@ -2673,7 +2809,7 @@ _boom() {
     fi
     return
   fi
-  if [[ "$2" =~ ^"-" && " ${COMP_WORDS[1]} " =~ " chat " ]]; then COMPREPLY=($(_chat_emoji $2)); return; fi
+  if [[ "$2" =~ ^"-" && " chat " =~ " ${COMP_WORDS[1]} " ]]; then COMPREPLY=($(_chat_emoji $2)); return; fi
 
   local options suboptions
   options=($(declare -f boom | sed -ne '/^\s.*)$/ s/\s*\(.*\)_)/\1/p' | grep -v [*_]))
@@ -2685,6 +2821,21 @@ _boom() {
     COMPREPLY=($(compgen -W "$(cat $_boomUsers) all" -- $2));
   elif [[ "${COMP_WORDS[1]}" == "drought" && "$3" == "rarity" && "${#COMP_WORDS[@]}" == "4" ]]; then
     COMPREPLY=($(compgen -W "fav" -- $2));
+  elif [[ "${COMP_WORDS[1]}" == "poll" && "${#COMP_WORDS[@]}" -ge "4" ]]; then
+    # Only title complete for print/vote
+    if [[ ! " print vote " =~ " ${COMP_WORDS[2]} " ]]; then return; fi
+    if [[ "$2" =~ ^"-" ]]; then COMPREPLY=($(_chat_emoji $2)); return; fi
+
+    # Reply with titles
+    COMPREPLY=()
+    local curr="${COMP_WORDS[@]:3}"
+    local pre="${COMP_WORDS[@]:3}"
+    pre="${pre//^*$2}"
+
+    while IFS= read line; do
+      [[ "$line" =~ " " ]] && line="${line//$pre/$2}"
+      COMPREPLY+=("$line")
+    done < <(awk -F' - ' '/\[POLL [0-9]+\]/ { sub(/.*-t /,""); print $1 }' $_boommeterLog | grep ^"$curr")
   elif [ "${#COMP_WORDS[@]}" == "2" ]; then
     COMPREPLY=($(compgen -W "${options[*]}" -- $2));
   elif [ "${#COMP_WORDS[@]}" == "3" ] && [[ " ${options[@]} " =~ " $3 " ]]; then
@@ -2805,7 +2956,7 @@ _chat_emoji() {
 
   # Handle -$- evaluation with sed - not pretty but gets the job done
   options=(${options[@]/%/-})
-  compgen -W "${options[*]}" -- "${1}" | sed -e 's/-himBHs/-$-/'
+  compgen -W "${options[*]}" -- "${1}" | sed -e 's/-'"$-"'/-$-/'
 }
 complete -F _chat chat
 __boombot() {
@@ -2850,13 +3001,17 @@ if [ -r "/$BOOMUSERDIR/$BOOMBOSS/$BOOMRCS/.boomdevrc" ]; then
   # ln -s ../.boomdevrc . in BOOMRCS directory to activate
   source /$BOOMUSERDIR/$BOOMBOSS/$BOOMRCS/.boomdevrc
 fi
+if [ -r "/$BOOMUSERDIR/$BOOMBOSS/$BOOMRCS/.boompollrc" ]; then
+  # Boom poll
+  source /$BOOMUSERDIR/$BOOMBOSS/$BOOMRCS/.boompollrc
+fi
 
 # Next up
-#TODO: /chat poll
+#TODO: boom wrapped, boom goal, boom poll - patch 3.0.0
+#TODO: site logins
 
 # Short term todos - roughly in order
 #TODO: Container start script and boomdev functions - can hopefully run site in container, simulate user counts, etc
-#TODO: boom goal
 #TODO: bar BTODAY resets if new day?
 #TODO: boom quest items - implementation of rewards/collectibles - this gamification is gonna be 3.0 probably
 #TODO: boombar - boombar notify? idea for temporary changes to boombar that revert back to prefix after x commands
@@ -2868,6 +3023,7 @@ fi
 #TODO: Enforce configured emojis to be emojis?
 
 # Long term todos
+#TODO: move boom command big features to separate callable rcs (chat, for instance)
 #TODO: more boombot remarks
 #TODO: boombar - add boombar options
 #TODO: assess additional args with boomssh/exec

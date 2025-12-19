@@ -27,8 +27,8 @@ echo Treating $EXPECTED_BOOMINSTALL as /BOOMUSERDIR/BOOMBOSS/BOOMINSTALL, aka /$
 echo
 echo "Using $EXPECTED_BOOMINSTALL for server location"
 echo Expecting .boomserver to live in $EXPECTED_BOOMRCS/.boomserver
-read -p "Is this correct? [y/N]" respY
-if [[ ! " y Y yes " =~ " $respY " ]]; then
+read -p "Is this correct [y/N]?" respY
+if [[ ! " y yes yup fs " =~ " ${respY,,} " ]]; then
   exit 1
 fi
 
@@ -62,7 +62,7 @@ sed -i "\|BOOMINSTALL| s|<unset>|\"$BOOMINSTALL\"|" $backendfile || exit 1
 sed -i "\|BOOMPORT| s|<unset>|\"$BOOMPORT\"|" $backendfile || exit 1
 sed -i "\|BOOMCFGFILE| s|<unset>|\"$configfile\"|" $backendfile || exit 1
 
-servicefile=$EXPECTED_BOOMINSTALL/.boomserver/.boomzone.service
+servicefile=$EXPECTED_BOOMINSTALL/.boomserver/boomzone.service
 echo Configuring $servicefile using boom config...
 sed -i "s|<USER>|$USER|" $servicefile || exit 1
 sed -i "s|<TL_BOOMINSTALL>|/$BOOMUSERDIR/$BOOMBOSS/$BOOMINSTALL|" $servicefile || exit 1
@@ -71,20 +71,20 @@ echo
 read -p "IMPORTANT: The default password (DEFPASSWD) defined in .boomserver/.boombackend.py is the sha256 hash of 'boomers'. Hit enter to acknowledge. " respY
 echo
 read -p "Server files configured. Would you like to enable the service? [y/N]" respY
-if [[ ! " y Y yes " =~ " $respY " ]]; then
+if [[ ! " y yes yup fs " =~ " ${respY,,} " ]]; then
   echo Setup complete. Run \`cd $EXPECTED_BOOMINSTALL/.boomserver\; python3 ${backendfile#$EXPECTED_BOOMINSTALL/.boomserver/}\` to start the site at $BOOMSITE
   exit 0
 fi
 
-echo Enabling and starting .boomzone.service
+echo Enabling and starting boomzone.service
 echo "The following commands are about to run:"
-echo "  sudo ln -sv $EXPECTED_BOOMINSTALL/.boomserver/.boomzone.service /usr/lib/systemd/system/ || exit 1"
-echo "  sudo systemctl enable .boomzone || exit 1"
-echo "  sudo systemctl start .boomzone || exit 1"
+echo "  sudo ln -sv $servicefile /usr/lib/systemd/system/ || exit 1"
+echo "  sudo systemctl enable boomzone || exit 1"
+echo "  sudo systemctl start boomzone || exit 1"
 
-sudo ln -sv $EXPECTED_BOOMINSTALL/.boomserver/.boomzone.service /usr/lib/systemd/system/ || exit 1
-sudo systemctl enable .boomzone || exit 1
-sudo systemctl start .boomzone || exit 1
+sudo ln -sv $servicefile /usr/lib/systemd/system/ || exit 1
+sudo systemctl enable boomzone || exit 1
+sudo systemctl start boomzone || exit 1
 
 echo Setup complete. Start boom zone in browser with \`boomzone\` or navigate to $BOOMSITE to view
 

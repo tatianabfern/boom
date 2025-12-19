@@ -7,7 +7,7 @@ The goal of this project is to bring the boom to the dev environment. At its pur
 To install this repo in your local environment, simply:
 ```bash
 cd ${XDG_CONFIG_HOME:-~/.config}
-git clone git@github.com:Vision940/boom
+git clone git@github.com:Vision940/boom # Could also clone with https or unzip repo .zip here
 cd boom
 bash .boominstaller.bash
 ```
@@ -61,6 +61,7 @@ There are currently 5 .boom\*rc files sourced by default in the boom rc suite. H
 |.boomdocsrc|This is a pretty essential rc that enables the commented documentation above each function/alias in the .boomrc to be parsed and printed to the terminal like a --help text.|Sourced|
 |.boomenvrc|This is a simple rc that enables boom commands to be run without `boom` in front of them. It is enabled with `boom env` after sourcing `.boomrc`|Not Sourced|
 |.boomholidayrc|This rc is an optional rc that adds festive themes throughout the year!|Sourced|
+|.boompollrc|This rc includes necessary code for the `boom poll` command to function.|Sourced|
 |.boomsimplerc|This is the rc that enables boom sessions through `boomexec` and `boomssh`. It is essential if you plan to take the boom with you when you travel to other machines/containers.|Sourced|
 
 Again, the recommended way to source these is by creating a custom .boomrc file in an easy-to-access place that sets BOOMCFGFILE and sources the repo's .boomrc file.
@@ -69,7 +70,9 @@ Again, the recommended way to source these is by creating a custom .boomrc file 
 
 To update boom, simply `git pull` the latest changes, read the patch notes, and re-source the `.boomrc` to make sure nothing has changed.
 
-If the site is in use and the site files have changed since the last update, copy over the changed files to the BOOMINSTALL location. Alternatively, backup `data/` in `BOOMINSTALL/.boomserver` and re-run the `.siteconfig.bash` script. This will set up the server fresh based on the current state of the generic repo server files, and you can move `data/` back to restore the configs.
+If the site is in use and the site files have changed since the last update, re-run the `.siteconfig.bash` script. This will set up the server fresh based on the current state of the generic repo server files, and it will preserve the server's local `data/` directory.
+
+If installing with a downloaded .zip of the repo, `rsync -av --delete <unzipped repo dir> <install dir>` should work well to update the existing install without git.
 
 ## Requirements
 

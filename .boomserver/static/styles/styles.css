@@ -207,6 +207,30 @@ pre {
     border-radius: 12px
 }
 
+.poll-line {
+    display: flex;
+    align-items: center;
+}
+
+.poll {
+    display: block;
+    border-left: 3px solid #888;
+    padding-left: 8px;
+    margin: 6px 0;
+    width: 85%;
+    box-sizing: border-box;
+    cursor: pointer;
+}
+
+.poll-body.hidden {
+    display: none;
+}
+
+.poll-body {
+    margin-top: 4px;
+    white-space: pre-wrap;
+}
+
 .hover-red:hover {
     color:var(--text-emphasis-color);
 }

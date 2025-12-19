@@ -47,8 +47,8 @@ echo Treating $EXPECTED_BOOMINSTALL as /BOOMUSERDIR/BOOMBOSS/BOOMINSTALL, aka /$
 echo
 echo "Using $EXPECTED_BOOMINSTALL for files owned by BOOMBOSS ($USER)"
 echo Expecting .boomrc to live in $EXPECTED_BOOMRCS/rcs
-read -p "Is this correct? [y/N]" respY
-if [[ ! " y Y yes " =~ " $respY " ]]; then
+read -p "Is this correct [y/N]?" respY
+if [[ ! " y yes yup fs " =~ " ${respY,,} " ]]; then
   exit 1
 fi
 

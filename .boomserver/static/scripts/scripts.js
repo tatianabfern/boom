@@ -340,7 +340,6 @@ let windowState = {
 }
 
 function contentClick() {
-    console.log("click");
     incrementStateContentRender();
 }
 
@@ -462,6 +461,152 @@ function updateContents() {
     outputElement.innerHTML = outputText;
 }
 
+const pollUIState = {
+    // pollId: true | false  (true = open)
+};
+
+function parsePollLine(line) {
+    line = line.trim();
+
+    if (!line.startsWith('[POLL ')) return null;
+
+    // Split into fields
+    const parts = line
+        .replace(/^\[POLL \d+\]\s*/, '')
+        .split(' - ')
+        .filter(Boolean);
+
+    // Extract poll ID
+    const pollIdMatch = line.match(/\[POLL (\d+)\]/);
+    if (!pollIdMatch) return null;
+
+    const pollId = Number(pollIdMatch[1]);
+    const createdAt = pollId * 1000;
+
+    const poll = {
+        id: pollId,
+        title: '',
+        flags: [],
+        options: [],
+        expiresInSeconds: 0,
+        voters: []
+    };
+
+    if (!(poll.id in pollUIState)) {
+          pollUIState[poll.id] = false;
+    }
+
+    for (let i = 0; i < parts.length; i++) {
+        const part = parts[i];
+
+        if (part.startsWith('-t ')) {
+            poll.title = part.slice(3);
+        }
+        else if (part.startsWith('-f ')) {
+            poll.flags = part.slice(3).split(' ');
+        }
+        else if (part.startsWith('-o ')) {
+            // Format: -o OPT> COUNT [VOTERS...]
+            const opt = part.slice(3);
+            const [labelPart, rest] = opt.split('>');
+            const restParts = rest.trim().split(/\s+/);
+
+            const count = Number(restParts.shift());
+            const voters = restParts;
+
+            poll.options.push({
+                label: labelPart.trim(),
+                count,
+                voters
+            });
+        }
+        else if (part.startsWith('-e ')) {
+            poll.expiresInSeconds = Number(part.slice(3));
+        }
+        else if (part.startsWith('-v ')) {
+            poll.voters = part.slice(3).split(/\s+/).filter(Boolean);
+        }
+    }
+
+    // Compute time remaining
+    const now = Date.now();
+    poll.expiresAt = createdAt + poll.expiresInSeconds * 1000;
+    poll.timeRemainingMs = Math.max(0, poll.expiresAt - now);
+
+    return poll;
+}
+
+function formatPoll(poll) {
+    let output = '';
+
+    poll.options.forEach(opt => {
+        const voteWord = opt.count === 1 ? 'vote' : 'votes';
+        const voterStr = opt.voters.length
+            ? ` (${opt.voters.join(' ')})`
+            : '';
+        output += `    ${opt.label}: ${opt.count} ${voteWord}${voterStr}\n`;
+    });
+
+    const ms = poll.timeRemainingMs;
+    const seconds = Math.floor(ms / 1000) % 60;
+    const minutes = Math.floor(ms / 60000) % 60;
+    const hours = Math.floor(ms / 3600000) % 24;
+    const days = Math.floor(ms / 86400000);
+
+    let timeStr = '';
+    if (days) timeStr += `${days} day${days !== 1 ? 's' : ''} `;
+    if (hours) timeStr += `${hours} hour${hours !== 1 ? 's' : ''} `;
+    if (minutes) timeStr += `${minutes} minute${minutes !== 1 ? 's' : ''} `;
+    
+    // Show seconds only if all larger units are zero
+    if (!days && !hours && !minutes) {
+        timeStr += `${seconds} second${seconds !== 1 ? 's' : ''}`;
+    }
+
+    if (ms > 0) {
+        output += `\nVoting closes in ${timeStr.trim()}`;
+    } else {
+        output += `\nVoting has closed`;
+    }
+
+    return output;
+}
+
+function renderPoll(poll) {
+    const returnLine = document.createElement('div');
+    returnLine.className = 'poll-line';
+
+    const botUser = document.createElement('span');
+    botUser.textContent = "pollbot:  🗳️ ";
+    botUser.className = 'username-bot';
+
+    const pollDiv = document.createElement('div');
+    pollDiv.className = 'poll';
+
+    const header = document.createElement('div');
+    header.textContent = `Poll: ${poll.title}`;
+
+    const body = document.createElement('div');
+    body.className = 'poll-body';
+    const isOpen = pollUIState[poll.id] === true;
+    if (!isOpen) {
+        body.classList.add('hidden');
+    }
+    body.textContent = formatPoll(poll);
+
+    pollDiv.addEventListener('click', () => {
+        pollUIState[poll.id] = body.classList.toggle('hidden') === false;
+    });
+
+    pollDiv.appendChild(header);
+    pollDiv.appendChild(body);
+
+    returnLine.appendChild(botUser);
+    returnLine.appendChild(pollDiv);
+
+    return returnLine;
+}
+
 async function fetchCommandOutput() {
     await Promise.all([
         fetchBoomEmoji(),
@@ -555,14 +700,22 @@ async function fetchBoommeterFileContent() {
     if (data.lines) {
         data.lines.forEach(line => {
             const lineElement = document.createElement('div');
+            const poll = parsePollLine(line);
+
             let message = '';
             let username = '';
             let usernameElement = null;
 
+            // Handle polls specifically
+            if (poll) {
+                fileContentElement.appendChild(renderPoll(poll));
+                return;
+            }
+
             if (line.includes(':')) {
                 [username,message] = line.split(/:(.+)/);
                 usernameElement = document.createElement('span');
-                if (username.toLowerCase().includes('boombot')) {
+                if (username.toLowerCase().includes('boombot') || username.toLowerCase().includes('pollbot')) {
                     usernameElement.className = 'username-bot';
                 } else if (username === boomFavUsername || username === "*" + boomFavUsername) {
                     usernameElement.className = 'username-fav';

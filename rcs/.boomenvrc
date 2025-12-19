@@ -60,6 +60,10 @@ BOOMENV=""
 # "\t${B}docs${N}\n\t\tboom env alias for boomdocs";
 # "$(bash -l -c "BOOMCFGFILE=$BOOMCFGFILE _boomrcman boomdocs 2>/dev/null")";
 ###
+###ExcAlias poll
+# "\t${B}poll${N}\n\t\tboom env alias for boom poll";
+# "$(bash -l -c "BOOMCFGFILE=$BOOMCFGFILE _boomrcman boom-poll 2>/dev/null")";
+###
 command -v avg &>/dev/null        || { alias avg='boomavg'                && BOOMENV+="avg";         }
 command -v board &>/dev/null      || { alias board='boom board'           && BOOMENV+=" board";      }
 command -v drought &>/dev/null    || { alias drought='boom drought'       && BOOMENV+=" drought";    }
@@ -74,6 +78,7 @@ command -v zone &>/dev/null       || { alias zone='boom zone'             && BOO
 command -v bot &>/dev/null        || { alias bot='boombot'                && BOOMENV+=" bot";        }
 command -v bar &>/dev/null        || { alias bar='boombar'                && BOOMENV+=" bar";        }
 command -v docs &>/dev/null       || { alias docs='boomdocs'              && BOOMENV+=" docs";       }
+command -v poll &>/dev/null       || { alias poll='boom poll'             && BOOMENV+=" poll";       }
 
 # Completion - took alias expansion from blog.brujordet.no/post/bash/proper-autocompletion-for-bash-alias
 _expand_alias() {

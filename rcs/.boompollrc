@@ -1,0 +1,665 @@
+#!/usr/bin/env bash
+
+_boompoll() {
+  local pollline polltime polllineno polltime
+  local title optline option count voters
+  local addoption expiry pollopts usersVoted
+  local exprstr pollparsed input pollstr
+  local voteCount
+
+  local pollflags=" m " # Default flags here
+  local optionlines=()
+
+  _pollflagchecker() {
+    [[ " $pollflags " =~ " $1 " ]] && return 0 || return 1
+  }
+  _pluralIntVar() {
+    if [ $1 -gt 0 ]; then
+      extra=$3
+      if [[ "$3" == "printVar" ]]; then extra=; fi
+      echo "$1 $2$([ $1 -ne 1 ] && echo s)$extra"
+    elif [[ "$3" == "printVar" ]]; then
+      echo $1 $2s
+    fi
+  }
+  _parsepoll() {
+    # Decoder Ring:
+    #
+    # Opts are ' - ' delimited and start with -X
+    # -t TITLE - #
+    # -o OPT> [VOTES [USER USER ...]] - #
+    # -e EXPR - #
+    # -f POLLFLAG POLLFLAG ... - #
+    #   m: users can vote on multiple options
+    #   a: votes anonymous
+    # -v userHash userHash ... - # Users that have voted
+
+    _debug() {
+      [[ "$1" == "debug" ]] && return 0 || return 1
+    }
+
+    optionlines=()
+    voteCount=0
+
+    pollline="${1#\[POLL [0-9]*\]}" # [0-9] here is unnecessary
+    polltime="$(sed 's/[^ ]\+ \([0-9]\+\)].*/\1/' <<<"$1")"
+    _debug $2 && echo pollline="$pollline"
+    _debug $2 && echo polltime="$polltime"
+
+    while read line; do
+      case $line in
+        -t*)
+          title=${line#-t }
+          _debug $2 && echo title="$title"
+        ;;
+        -o*)
+          optline="${line#-o }"
+          option="${optline%%>*}"
+          count="$(awk '{print $1}' <<<"${optline##*>}")"
+          # voters only populated correctly if not -f a -
+          voters="${optline#$option> $count }"
+          addoption=y
+          voteCount=$((voteCount+count))
+
+          _debug $2 && echo optline="$optline"
+          _debug $2 && echo option="$option"
+          _debug $2 && echo count="$count"
+          _debug $2 && echo voters="$voters"
+        ;;
+        -e*)
+          expiry="$((${line#-e }+polltime))"
+          _debug $2 && echo expiry="$expiry"
+        ;;
+        -f*)
+          pollflags=" ${line#-f } "
+          _debug $2 && echo pollflags="$pollflags"
+        ;;
+        -v*)
+          usersVoted=" ${line#-v } "
+          [[ "$usersVoted" == " -v " ]] && usersVoted="" # no votes
+
+          _debug $2 && echo usersVoted="$usersVoted"
+        ;;
+      esac
+      [ -n "$addoption" ] && optionlines+=("$option> $(_pluralIntVar ${count:-0} vote printVar)$([[ ! " $pollflags " =~ " a " && ${count:-0} -ne 0 ]] && echo " ($voters)")")
+      addoption=
+    done < <(sed -e 's/ - /\n/g' <<<"$pollline")
+    pollparsed=y
+    _debug $2 && echo voteCount="$voteCount"
+
+    # Restore pollline
+    pollline="$1"
+    _debug $2 && echo pollline="$pollline"
+    : # Don't use _debug's exit code
+  }
+  _printpoll() {
+    # Print poll
+    echo "Poll: $title"
+    for option in $(seq 0 $((${#optionlines[@]}-1))); do
+      sed 's/>/:/' <<<"    ${optionlines[$option]}"
+    done
+  }
+  _findpoll() {
+    # Find poll with optional TITLE from chat log and return line number
+    local ptitle="$@"
+    if ! grep -q "^[POLL \[0-9\]\+] -t ${ptitle:-.*} - " $_boommeterLog; then
+      echo Error finding poll: Title \"${ptitle:-.*}\" not found in current chat session
+      return 1
+    fi
+
+    # Set poll line number matching title or most recent poll
+    polllineno=$(grep -n "^[POLL \[0-9\]\+] -t ${ptitle:-.*} - " $_boommeterLog | tail -n 1 | sed 's/:.*//')
+    [[ ! "$polllineno" =~ ^[0-9]+$ ]] && echo Error finding poll: Title not recognized && return 1 # should never hit this error
+
+    # Parse found poll
+    _parsepoll "$(sed -n "${polllineno}p" $_boommeterLog)" || return 1
+
+    return 0
+  }
+  _expirycheck() {
+    [[ -z "$pollparsed" ]] && echo Error checking expiry: Poll not parsed && return 1
+
+    # Check if a given poll is expired
+    local untilClose day hour minute
+    untilClose="$((expiry-EPOCHSECONDS))"
+    minute=$((untilClose/60))
+    hour=$((minute/60))
+    day=$((hour/24))
+    minute=$((minute-((24*$day+$hour)*60)))
+    hour=$((hour-24*$day*60))
+    if [[ "$day $minute $hour" == "0 0 0" ]]; then seconds=$untilClose; fi
+
+    # Additionally print out time till expiration
+    if [[ $untilClose -gt 0 ]]; then
+      echo "Voting closes in $(_pluralIntVar $day day " ")$(_pluralIntVar $hour hour " ")$(_pluralIntVar $minute minute)$(_pluralIntVar ${seconds:-0} second)"
+    else
+      echo "Voting has closed"
+      return 1
+    fi
+
+    return 0
+  }
+
+  case "_$1_" in
+    _create_)
+      # Bring users into a term environment to build the POLL string for chat
+      echo -n  "$_BE_BOT $_BE_BOT $_BE_BOT $_BE_BOT $_BE_BOT"
+      echo -n " $_BE_BOT $_BE_BOT $_BE_BOT $_BE_BOT $_BE_BOT"
+      echo    " $_BE_BOT $_BE_BOT $_BE_BOT"
+      echo "$_BE_BOT  Welcome to the poll constructor $_BE_BOT"
+      echo "$_BE_BOT   Run \`?\` for a list of options  $_BE_BOT"
+      echo -n  "$_BE_BOT $_BE_BOT $_BE_BOT $_BE_BOT $_BE_BOT"
+      echo -n " $_BE_BOT $_BE_BOT $_BE_BOT $_BE_BOT $_BE_BOT"
+      echo    " $_BE_BOT $_BE_BOT $_BE_BOT"
+
+      local userInput
+      local __poll_env_hist_idx=0
+
+      local histfile=/tmp/.pollenvhist-$USER
+      local currfile=/tmp/.pollenvcurridx-$USER
+
+      if [[ ! -f "$histfile" ]]; then
+        echo -n '' > $histfile
+      else
+        __poll_env_hist_idx=$(wc -l $histfile | awk '{print $1}')
+      fi
+
+      echo -n "$__poll_env_hist_idx" > /tmp/.pollenvcurridx-$USER
+
+      # History handling
+      __poll_env_hist_up() {
+        [[ -z "$USER" ]] && USER=$(whoami)
+        histfile=/tmp/.pollenvhist-$USER
+        idxfile=/tmp/.pollenvcurridx-$USER
+        currfile=/tmp/.pollenvcurrline-$USER
+
+        __poll_env_idxs=($(awk '{print $1}' $histfile))
+        while read line; do
+          __poll_env_hist+=("${line#* }")
+        done < $histfile
+        __poll_env_idx=$(cat $idxfile)
+
+        if [[ $__poll_env_idx -eq ${#__poll_env_idxs[@]} ]]; then
+          echo -n $READLINE_LINE > $currfile
+        fi
+
+        test ${#__poll_env_idxs[@]} -gt 0 || return
+        test $((__poll_env_idx-1))  -ge 0 || return
+        echo -n "$((__poll_env_idx-1))" > $idxfile
+
+        READLINE_LINE="${__poll_env_hist[$(cat $idxfile)]}"
+        READLINE_POINT=${#READLINE_LINE}
+      }
+      __poll_env_hist_down() {
+        [[ -z "$USER" ]] && USER=$(whoami)
+        histfile=/tmp/.pollenvhist-$USER
+        idxfile=/tmp/.pollenvcurridx-$USER
+        currfile=/tmp/.pollenvcurrline-$USER
+
+        __poll_env_idxs=($(awk '{print $1}' $histfile))
+        while read line; do
+          __poll_env_hist+=("${line#* }")
+        done < $histfile
+        __poll_env_idx=$(cat $idxfile)
+
+        if test $((__poll_env_idx+1)) -eq ${#__poll_env_idxs[@]}; then
+          echo -n "${#__poll_env_idxs[@]}" > $idxfile
+
+          READLINE_LINE="$(cat $currfile 2>/dev/null)"
+          READLINE_POINT=${#READLINE_LINE}
+
+          \rm $currfile &>/dev/null
+          return
+        elif test $((__poll_env_idx+1)) -gt ${#__poll_env_idxs[@]}; then
+          return
+        fi
+
+        echo -n "$((__poll_env_idx+1))" > $idxfile
+
+        READLINE_LINE="${__poll_env_hist[$(cat $idxfile)]}"
+        READLINE_POINT=${#READLINE_LINE}
+      }
+
+      _poll_env_read_with_completion() {
+        [[ -z "$USER" ]] && USER=$(whoami)
+
+        local hostfile=/tmp/.boomhostcompletion
+        local currfile=/tmp/.pollenvcurrline-$USER
+
+        [ -f $currfile ] && \rm $currfile &>/dev/null
+        set -o emacs
+        unset HOSTFILE
+        export HOSTFILE=$hostfile
+        bind -r "\C-r" # unbind reverse-i search
+        bind -x '"\e[A":"__poll_env_hist_up"' # up goes up in history
+        bind -x '"\e[B":"__poll_env_hist_down"' # down goes down in history
+        bind -x '"\e[5~":"__poll_env_hist_up"' # rebind PgUp
+        bind -x '"\e[6~":"__poll_env_hist_down"' # rebind PgDown
+        bind '"\C-g":complete-hostname' # complete from dynamically generated hostfile
+        bind '"\C-xy":possible-hostname-completions' # print completions if multiple options
+        bind -x '"\C-xh":"__poll_env_comp /tmp/.boomhostcompletion"' # generate hostfile
+        bind '"\t":"\C-xh\C-g\C-xy"'
+        echo "0 notinitialized" > $hostfile
+        unset HOSTFILE # clear any already-read hosts
+        HOSTFILE=$hostfile \
+        read -e -p ' > ' || return $?
+
+        printf '%s' "$REPLY"
+        \rm $hostfile &>/dev/null
+      }
+      __poll_env_comp() {
+        local curline="${READLINE_LINE:0:$READLINE_POINT}" # save current line up to cursor
+        local cur="${curline##* }" # save current word
+        local prev="${curline% *}"
+        local words=()
+
+        [[ "$prev" =~ " " ]] && prev="${prev##* }" # save previous word
+        [[ ! "$curline" =~ ' ' ]] && prev=
+        words=($(echo "$curline"))
+        [[ -z "$cur" ]] && words+=('')
+
+        # Build out hosts file to complete from for complete-hostname
+        echo -n '' >$hostfile
+
+        local reply=()
+        local wordCount=${#words[@]}
+        if [[ $wordCount -le 1 ]]; then
+          reply=($(compgen -W "t a d e h m n o p q s ?" -- $cur))
+        elif [[ " d del delete " =~ " $prev " ]]; then
+          while read line; do
+            # compgen -W "" -- $2 but homemade bc multiple word resps
+            if [[ -n "$cur" && "$line" =~ ^"$cur" ]] || [[ -z "$cur" ]]; then
+              reply+=("${line// />}")
+            fi
+          done < <(sed 's/>/\n/g' <<<"$pollopts")
+        fi
+
+        # Special case: emojis
+        if [[ "$cur" =~ ^"-" && $wordCount -ge 2 ]]; then
+          reply=($(_chat_emoji $cur))
+
+          if [[ "${#reply[@]}" -eq 1 ]]; then
+            # Remove -emoji- str so that completion will replace with emoji
+            local precomp="${curline%$cur}"
+            local restofline="${READLINE_LINE#${curline}}"
+            READLINE_LINE="$precomp${restofline}"
+            READLINE_POINT=${#precomp}
+          fi
+        fi
+
+        for word in ${reply[@]}; do echo 0 $word >>$hostfile; done
+          # 0 in case comp starts with num
+          # seq to support multi word args
+
+        # Get bash to call sv_hostfile to re-init hostfile for completion with new options
+        unset HOSTFILE
+        HOSTFILE=$hostfile
+      }
+      _exprstr2sec() {
+        local seconds
+        local m h d
+        m=$(sed -ne 's/.*\([0-9]\{2\}\)m.*/\1/p' <<<"$exprstr")
+        h=$(sed -ne 's/.*\([0-9]\{2\}\)h.*/\1/p' <<<"$exprstr")
+        d=$(sed -ne 's/.*\([0-9]\{2\}\)d.*/\1/p' <<<"$exprstr")
+        seconds=$((60*${m:-0}+3600*${h:-24}+3600*24*${d:-0}))
+
+        echo $seconds
+      }
+      _buildpoll() {
+        if [ -z "$title" ]; then echo Error building poll: Title unset; return 1; fi
+
+        local optionstr=""
+        while read line; do
+          [ -n "$line" ] && optionstr+="-o ${line}> 0 - "
+        done < <(sed 's/>/\n/g' <<<"$pollopts")
+        if [[ -z "$optionstr" ]]; then echo Error building poll: No options found; return 1; fi
+
+        local flagstr="-f "
+        # echo the option when not default
+        if ! _pollflagchecker m; then
+          echo Users cannot vote on multiple options
+        else
+          flagstr+="m "
+        fi
+        if _pollflagchecker n; then
+          echo Users\' votes will be anonymous
+          flagstr+="a " # I'm sorry that this is a in the POLL str and n in the env
+        fi
+        flagstr+="- "
+        # Add newline if not expected default
+        [[ "$flagstr" != "-f m - " ]] && echo
+
+        local exprsec=86400 # 24h
+        if [[ -n "$exprstr" ]]; then
+          exprsec=$(_exprstr2sec)
+        fi
+        echo Poll set to expire ${exprstr:-"24h"} after creation
+        echo
+
+        pollstr="[POLL $EPOCHSECONDS] -t $title - ${flagstr}${optionstr}-e $exprsec - -v  - "
+      }
+
+      while :; do
+        if ! userInput=$(_poll_env_read_with_completion); then # must be in subshell so bind/histfile things don't break env
+          echo exit # exit when ^D or read failure
+          break
+        fi
+
+        if [[ -n "$userInput" ]]; then
+          __poll_env_hist_idx=$(wc -l $histfile | awk '{print $1}')
+          echo "${__poll_env_hist_idx:-0} $userInput" >> $histfile
+          __poll_env_hist_idx=$(wc -l $histfile | awk '{print $1}')
+        fi
+        echo -n "$__poll_env_hist_idx" > /tmp/.pollenvcurridx-$USER
+
+
+        if [[ -n "$userInput" && " h help --help -h -help " =~ " $userInput " ]]; then
+          _boompoll "help" | sed -e 's|^|   |'
+          echo
+          echo "   \"?\" will print poll env help"
+          echo "   \"exit\" or \"q\" will exit the poll env"
+        elif [[ "$userInput" == "?" ]]; then
+          echo "   Poll-Building Commands:"
+          echo "     t TITLE: set title"
+          echo "     a OPT:   add option"
+          echo "     d OPT:   delete option"
+          echo "     e EXP:   set poll expiration time in format [0[1-3]d]XXh[XXm] (default 24h)"
+          echo
+          echo "     h:       view poll env boomdocs entry"
+          echo "     m:       toggle voting for multiple options (default on)"
+          echo "     n:       toggle anonymous responses (default off)"
+          echo "     o:       view current options"
+          echo "     p:       view current poll"
+          echo "     q:       exit poll creation without saving"
+          echo "     s:       submit poll to chat and quit"
+          echo
+          echo "     -<tab>:  complete with chat emoji completion"
+        elif [[ -z "$userInput" ]]; then continue
+        elif [[ ! " exit q quit " =~ " $userInput " ]]; then
+          case "${userInput%% *}" in
+            add) ;&
+            a)
+              [[ "$userInput" == "${userInput%% *}" ]] && echo "   Please provide an option to add" && continue
+              local opt="${userInput#* }"
+
+              [[ "$opt" =~ ">" ]] && echo "   Removing \`>\` character for processing"
+              [[ "$opt" =~ " - " ]] && echo "   Changing \` - \` character to \`-\` for processing"
+              opt="${opt// - /-}"
+              opt="${opt//\>/ }"
+              opt="$(sed -e 's/ \+$//' -e 's/^ \+//' <<<"$opt")"
+
+              if [[ "${pollopts}" =~ " ${opt}> " ]]; then
+                echo "   Option already exists in list, skipping..."
+              else
+                pollopts+=" ${opt}> "
+
+                echo "   Added option \"${opt}\""
+                sed -e 's/, "$/"/' -e 's/" /"/g' -e 's/,  /, /g' <<<"   Current options: \"${pollopts//\>/,}\""
+              fi
+            ;;
+            delete) ;&
+            del) ;&
+            d)
+              [[ "$userInput" == "${userInput%% *}" ]] && echo "   Please provide an option to delete" && continue
+              local opt="${userInput#* }"
+              opt="${opt//\>/ }"
+              opt="$(sed -e 's/ \+$//' -e 's/^ \+//' <<<"$opt")"
+
+              if [[ ! "${pollopts}" =~ " ${opt}> " ]]; then
+                echo "   Option doesn't exist in list, skipping..."
+              else
+                pollopts="${pollopts// ${opt}\> }"
+
+                echo "   Removed option \"${opt}\""
+                sed -e 's/, "$/"/' -e 's/" /"/g' -e 's/,  /, /g' <<<"   Current options: \"${pollopts//\>/,}\""
+              fi
+            ;;
+            exp) ;&
+            e)
+              [[ "$userInput" == "${userInput%% *}" ]] && echo "   Please provide an expiry string" && continue
+              local opt="${userInput#* }"
+              opt="$(sed -e 's/ \+$//' -e 's/^ \+//' <<<"$opt")"
+
+              # Validate str here - enforce minimum 1 hour
+              exprstr=$(sed -ne '/^\(0[0-3]d\)\{0,1\}[0-9]\{2\}h\([0-9]\{2\}m\)\{0,1\}$/p' <<<"$opt")
+              if [[ "$exprstr" =~ "69m" ]]; then echo "   $_BE_BOT Nice";
+              elif [[ "$exprstr" =~ "00h"[6-9][0-9]"m" ]]; then echo "   $_BE_BOT BoomBot will let that slide...";
+              elif [[ "$exprstr" =~ "00h" ]]; then exprstr=; echo "   $_BE_BOT BoomBot decrees a minimum of 1 hour!";
+              fi
+
+              if [[ -z "$exprstr" ]]; then
+                echo "   Invalid expiration string. Expects format [0[1-3]d]XXh[XXm]."
+              else
+                echo "   Set expiration string to $exprstr"
+              fi
+            ;;
+            # Toggleable flags cascade here
+            m) ;&
+            n)
+              local opt="${userInput%%* }"
+              if [[ "$pollflags" =~ " ${opt} " ]]; then
+                echo "   Toggling option ${opt} to off..."
+                pollflags="${pollflags// $opt }"
+              else
+                echo "   Toggling option $opt to on..."
+                pollflags+=" $opt "
+              fi
+            ;;
+            options) ;&
+            opts) ;&
+            o)
+              sed -e 's/, "$/"/' -e 's/" /"/g' -e 's/,  /, /g' <<<"   Current options: \"${pollopts//\>/,}\""
+            ;;
+            print) ;&
+            p)
+              { _buildpoll && _parsepoll "$pollstr" && _printpoll; } | sed -e 's/^/   /'
+            ;;
+            save) ;&
+            s)
+              local output="$({ _buildpoll && _parsepoll "$pollstr" && _printpoll && echo "$pollstr" >> $_boommeterLog; } | sed -e 's/^/   /')"
+              echo "$output"
+              echo
+              [[ ! "$output" =~ ^"   Error" ]] && break
+            ;;
+            title) ;&
+            t)
+              [[ "$userInput" == "${userInput%% *}" ]] && echo "   Please provide a title" && continue
+              title="${userInput#* }"
+              [[ "$title" =~ " - " ]] && echo "   Changing \` - \` character to \`-\` for processing"
+              title="${title// - /-}"
+              title="$(sed -e 's/ \+$//' -e 's/^ \+//' <<<"$title")"
+
+              grep -q "^[POLL \[0-9\]\+] -t $title - " $_boommeterLog && echo "   Title already found in current chat session - please use an alternate title" && continue
+
+              echo "   Set title to \"$title\""
+            ;;
+            *)
+              echo "   Unrecognized option ${userInput%% *}. Run \`?\` for help."
+            ;;
+          esac
+        else
+          break
+        fi
+      done
+
+      \rm /tmp/.boomhostcompletion &>/dev/null
+      \rm /tmp/.pollenvcurrline-$USER &>/dev/null
+    ;;
+    _list_)
+      # Parse chat for active polls and print titles/expiry info
+      if ! grep -q "[POLL \[0-9\]\+]" $_boommeterLog; then
+        echo No polls found in current chat log
+        return
+      fi
+
+      while IFS= read line; do
+        _parsepoll "$line"
+        echo Poll: \"$title\" \($voteCount Votes, $(wc -w <<<"$usersVoted") Voters\) - $(_expirycheck | sed 's/^Voting c/C/')
+      done < <(grep -r "[POLL \[0-9\]\+]" $_boommeterLog)
+    ;;
+    __)
+      # Default - print poll if input matches any title, otherwise print latest
+      input=$@
+    ;&
+    _print_)
+      # Decode [POLL $EPOCHSECONDS] lines in chat file for terminal display
+      _findpoll ${input:-${@:2}} || return 1
+      _printpoll
+      echo
+      _expirycheck || return 1
+    ;;
+    _vote_)
+      _buildpoll() {
+        # Edit poll line with updated info
+        local optionstr=""
+        for option in $(seq 0 $((${#optionlines[@]}-1))); do
+          # Convert each option from display string to -o opt> votes [voters] - format
+          optline="${optionlines[$option]}"
+          option="${optline%%>*}"
+          count="$(awk '{print $1}' <<<"${optline##*>}")"
+
+          voters=
+          if [[ "$optline" =~ "(" && ! "$optline" =~ "()" ]]; then
+            voters="$(sed -ne 's/.*(\(.*\)).*/\1/p' <<<"${optline}")"
+            voters=" $(sed 's/ /\n/g' <<<"$voters" | sort | xargs) "
+          fi
+
+          optionstr+="-o $option> $count${voters:- }- "
+        done
+
+        # Erase the -o strings without worrying about '-' in the options
+        pollstr="$(awk -F' - ' '
+                    {
+                      out=""
+                      for (i=1; i <= NF; i++)
+                        if ($i !~ /^-o /)
+                          out=out $i " - "
+                      sub(/ - $/, "", out)
+                      print out
+                    }' <<<"$pollline"
+                  )"
+        pollstr="$(sed -e "s/-v [^-]\\+- /-v${usersVoted//  / }- /" \
+                       -e "s/-e/$optionstr-e/" \
+                   <<<"$pollstr")"
+      }
+
+      local action="voted"
+
+      # Vote on specified poll
+      _findpoll ${@:2} || return 1
+      _printpoll
+      echo
+      _expirycheck || return 1
+      echo
+
+      # Check if user in users voted
+      local userHash=$(openssl dgst -sha256 <<<"$USER" | awk '{print $2}')
+      if [[ " $usersVoted " =~ " $userHash " ]]; then
+        action="changed their vote"
+
+        # Check if can change vote, otherwise quit
+        if _pollflagchecker a; then
+          # Default behavior is to overwrite votes
+          echo Error voting: Users cannot change their votes on an anonymous poll
+          return 1
+        fi
+      else
+        usersVoted+=" $userHash "
+      fi
+
+      # Print poll options
+      echo Options:
+      local validOpts=" "
+      local tmpoptionlines=()
+      for option in $(seq 0 $((${#optionlines[@]}-1))); do
+        # Remove existing $USER votes when listing options
+        voters=$(sed -e "s/.*(\\(.*\\)).*/\\1/" <<<"${optionlines[$option]}")
+        if [[ " $voters " =~ " $USER " ]]; then
+          voters="$(sed -e "s/ $USER / /" -e 's/ \+$//' -e 's/^ \+//' <<<" $voters ")"
+
+          # replace voters # decrement vote # clean up grammar
+          tmpoptionlines+=("$(sed -e "s/(.*)/($voters)/" \
+                                  -e 's/^\([^>]\+\)> \([0-9]\+\)\(.*\)/echo "\1> $((\2-1))\3"/e' \
+                                  -e 's/vote/votes/' \
+                                  -e 's/1 votes/1 vote/' \
+                              <<<"${optionlines[$option]}")")
+        else
+          tmpoptionlines+=("${optionlines[$option]}")
+        fi
+
+        sed 's/>/:/' <<<"  [$option]: ${tmpoptionlines[$option]// ()}"
+        validOpts+="$option "
+      done
+      echo
+
+      # Read input
+      local resp
+      if _pollflagchecker m; then
+        read -p "Please input comma-separated list of indices to vote for: " resp
+        if [[ -z "$resp" || ! "$resp" =~ ^[0-9,]+$ ]]; then echo Error voting: Please input comma-separated list of chosen option indices; return 1; fi
+      else
+        read -p "Please input index to vote for: " resp
+        if [[ -z "$resp" || ! "$resp" =~ ^[0-9]+$ ]]; then echo Error voting: Please input only chosen option index; return 1; fi
+      fi
+      while read line; do
+        if [[ ! "$validOpts" =~ " $line " ]]; then
+          echo Error voting: $line is not a valid option
+          return 1
+        fi
+      done < <(sed 's/,/\n/g' <<<"$resp")
+
+      # Rewrite optionlines with votes counted
+      local handledOpts=" "
+      for option in $(seq 0 $((${#tmpoptionlines[@]}-1))); do
+        # Add vote if option number matches
+        if [[ " ${resp//,/ } " =~ " $option " && ! "$handledOpts" =~ " $option " ]]; then
+          optionlines[$option]="$(sed -e "s/(\\(.*\\))/(\\1 $USER)/" \
+                                      -e 's/( /(/' \
+                                      -e 's/^\([^>]\+\)> \([0-9]\+\)\(.*\)/echo "\1> $((\2+1))\3"/e' \
+                                      -e 's/vote\( \|$\)/votes\1/' \
+                                      -e 's/1 votes/1 vote/' \
+                                  <<<"${tmpoptionlines[$option]}")"
+          if [[ "${optionlines[$option]}" =~ "1 vote"$ ]] && ! _pollflagchecker a; then
+            # Add ($USER) if first vote and not anonymous
+            optionlines[$option]+=" ($USER)"
+          fi
+          sed 's/>/:/' <<<"Vote counted: ${optionlines[$option]}"
+          handledOpts+="$option "
+        else
+          optionlines[$option]="${tmpoptionlines[$option]}"
+        fi
+      done
+      echo
+
+      # Re-build poll with changes
+      local oldpoll="$pollline"
+      _buildpoll
+      _parsepoll "$pollstr"
+      _printpoll | sed 's/Poll/Updated Poll/'
+      echo
+
+      if [[ "$pollstr" == "$oldpoll" ]]; then
+        echo Error voting: The poll did not change with this vote
+        return 1
+      fi
+
+      # Offer one more confirmation
+      read -p "Look good [y/N]? " resp
+      if [[ ! " y yes yup fs " =~ " ${resp,,} " ]]; then return; fi
+
+      # Save updated poll string
+      sed -i "/^\\[POLL $polltime\\]/ s/.*/$pollstr/" $_boommeterLog
+
+      # BoomBot chats when users vote
+      if ! _pollflagchecker a; then
+        echo "pollbot: 🗳️ $USER $action on poll \"$title\"" >> $_boommeterLog
+      else
+        echo "pollbot: 🗳️ Vote(s) have been added to poll \"$title\"" >> $_boommeterLog
+      fi
+    ;;
+    _help_)
+      boomdocs boom-poll
+    ;;
+  esac
+}
+
