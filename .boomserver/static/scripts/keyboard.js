@@ -36,6 +36,13 @@ document.addEventListener('keydown', function(event) {
             hidden = true;
         }
     }
+
+    if (event.key === "p" && fullyLoaded) {
+        window.pollDefault = !window.pollDefault;
+        Object.keys(window.pollUIState).forEach(key => {
+            window.pollUIState[key] = window.pollDefault;
+        });
+    }
 });
 
 let hidden = false;

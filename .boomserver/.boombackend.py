@@ -4,9 +4,10 @@ import signal
 import threading
 import time
 
-import api.boomjson as bj # cfg helper functions
-import api.boomapi  as ba # API helper functions
-import api.boomcmds as bc # background cmd runner
+import api.boomjson  as bj # cfg helper functions
+import api.boomapi   as ba # API helper functions
+import api.boomcmds  as bc # background cmd runner
+import api.boomfiles as bf # file parsers/line generators
 
 from flask import Flask, jsonify, render_template, send_from_directory, request, Response
 
@@ -153,40 +154,47 @@ def get_boom_emoji():
 
 #############################
 
+def read_file(filename, default_type = "log", lingering = False):
+    data = request.get_json()
+    api_key = data.get('key')
+    full = data.get('full', False)
+
+    valid_key, username = ba.validate_key(api_key)
+    if not valid_key: return jsonify(error="Invalid API Key"), 401
+
+    with open(filename, 'r') as file:
+        lines = file.readlines()
+
+    window = bf.build_window(lines, default_type, lingering)
+
+    with bf.file_lock:
+        if api_key not in bf.file_state:
+            bf.file_state[api_key] = {}
+
+        state = bf.file_state[api_key].setdefault(filename, {
+            "visible": []
+        })
+
+        if full:
+            state["visible"] = []
+
+        actions = bf.diff(state["visible"], window)
+        state["visible"] = window
+
+    return jsonify(full=full, actions=list(actions), order=[item["id"] for item in window])
+
 @app.route('/read_log_file', methods=['POST'])
 def read_log_file():
     try:
-        api_key = request.get_json().get('key')
-        valid_key, username = ba.validate_key(api_key)
-        if not valid_key: return jsonify(error="Invalid API Key"), 401
-
-        logfile = f"/{BOOMUSERDIR}/{BOOMBOSS}/{BOOMINSTALL}/.boomlog"
-        with open(logfile, 'r') as file:
-            lines = file.readlines()
-            display = reversed(lines[-54:]) if len(lines) > 54 else reversed(lines)
-            return jsonify(lines=list(display))
+        return read_file(f"/{BOOMUSERDIR}/{BOOMBOSS}/{BOOMINSTALL}/.boomlog")
     except Exception as e:
         return jsonify(error=str(e)), 500
 
 @app.route('/read_boommeter_file', methods=['POST'])
 def read_boommeter_file():
     try:
-        api_key = request.get_json().get('key')
-        valid_key, username = ba.validate_key(api_key)
-        if not valid_key: return jsonify(error="Invalid API Key"), 401
-
-        logfile = f"/{BOOMUSERDIR}/{BOOMBOSS}/{BOOMINSTALL}/.boommeterlog"
-        with open(logfile, 'r') as file:
-            lines = file.readlines()
-            for idx, line in enumerate(lines):
-                if line.startswith('[CIPHER] '):
-                    lines[idx] = line.lstrip('[CIPHER] ')
-                elif line.startswith('[EDITED] '):
-                    lines[idx] = f"*{line.lstrip('[EDITED] ')}"
-                elif line.startswith('[ASCII] '):
-                    lines[idx] = line.lstrip('[ASCII] ')
-            display = reversed(lines[-53:]) if len(lines) > 53 else reversed(lines)
-            return jsonify(lines=list(display))
+        return read_file(f"/{BOOMUSERDIR}/{BOOMBOSS}/{BOOMINSTALL}/.boommeterlog",
+                         default_type = "chat", lingering = True)
     except Exception as e:
         return jsonify(error=str(e)), 500
 

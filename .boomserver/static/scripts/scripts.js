@@ -42,6 +42,20 @@ function closeLoadingBar() {
     document.getElementById('loadingContainer').style.display = 'none';
 }
 
+const logView = {
+    firstLoad: true,
+    order: [],
+    items: new Map(),
+    container: null
+};
+
+const chatView = {
+    firstLoad: true,
+    order: [],
+    items: new Map(),
+    container: null
+};
+
 async function loadContent() {
     document.getElementById('passwordContainer').style.display = 'none';
     isLoading = true;
@@ -52,6 +66,9 @@ async function loadContent() {
 
     document.getElementById('loadingContainer').style.display = 'flex';
     document.getElementById('contentContainer').style.display = 'flex';
+
+    logView.container = document.getElementById('log-file-content');
+    chatView.container = document.getElementById('boommeter-file-content');
 
     Promise.all([
         fetchLogFileContent(),
@@ -130,7 +147,7 @@ async function boomFetch(endpoint, body = {}) {
             body: JSON.stringify(body)
         });
     
-        data = response.json();
+        data = await response.json();
     
         if (response.status != 200 || (data.error && data.error.length > 0)) {
             let err;
@@ -157,7 +174,7 @@ async function boomFetch(endpoint, body = {}) {
 
             // retry request after delay
             retries += 1;
-            sleep(1000 * retries * retries);
+            await sleep(1000 * retries * retries);
 
             continue;
         }
@@ -211,17 +228,27 @@ async function fetchBoomLatest() {
     return retVal;
 }
 
+let _boomFavoritePromise = null;
+
 // fetch boombot's favorite user
 async function fetchBoomFavorite() {
-    const data = await boomFetch("/run_boom_favorite_command");
+    if (_boomFavoritePromise) return _boomFavoritePromise;
 
-    let retVal = data.output;
+    _boomFavoritePromise = (async () => {
+        const data = await boomFetch("/run_boom_favorite_command");
 
-    boomFavoriteContent = retVal;
+        const retVal = data.output;
+        boomFavoriteContent = retVal;
 
-    boomFavUsername = retVal.split(" ")[1];
-    
-    return retVal;
+        const parts = retVal.split(/\s+/);
+        boomFavUsername = parts[1] ?? boomFavUsername;
+
+        return retVal;
+    })().finally(() => {
+        _boomFavoritePromise = null; // allow later refreshes
+    });
+
+    return _boomFavoritePromise;
 }
 
 // fetch the user with the longest drought
@@ -461,7 +488,8 @@ function updateContents() {
     outputElement.innerHTML = outputText;
 }
 
-const pollUIState = {
+window.pollDefault = false;
+window.pollUIState = {
     // pollId: true | false  (true = open)
 };
 
@@ -492,8 +520,8 @@ function parsePollLine(line) {
         voters: []
     };
 
-    if (!(poll.id in pollUIState)) {
-          pollUIState[poll.id] = false;
+    if (!(poll.id in window.pollUIState)) {
+        window.pollUIState[poll.id] = window.pollDefault;
     }
 
     for (let i = 0; i < parts.length; i++) {
@@ -537,7 +565,12 @@ function parsePollLine(line) {
 }
 
 function formatPoll(poll) {
-    let output = '';
+    let output = '  (';
+    if (poll.flags.includes('a')) {
+      output += "anonymous, ";
+    }
+    output += poll.flags.includes('m') ? "multi-vote" : "single-vote";
+    output += ")\n\n";
 
     poll.options.forEach(opt => {
         const voteWord = opt.count === 1 ? 'vote' : 'votes';
@@ -588,14 +621,14 @@ function renderPoll(poll) {
 
     const body = document.createElement('div');
     body.className = 'poll-body';
-    const isOpen = pollUIState[poll.id] === true;
+    const isOpen = window.pollUIState[poll.id] === true;
     if (!isOpen) {
         body.classList.add('hidden');
     }
     body.textContent = formatPoll(poll);
 
     pollDiv.addEventListener('click', () => {
-        pollUIState[poll.id] = body.classList.toggle('hidden') === false;
+        window.pollUIState[poll.id] = body.classList.toggle('hidden') === false;
     });
 
     pollDiv.appendChild(header);
@@ -628,138 +661,201 @@ async function fetchCommandOutput() {
     });
 }
 
-async function fetchLogFileContent() {
-    const data = await boomFetch('/read_log_file');
+function renderLogItem(payload) {
+    const line = payload.text;
+    const lineElement = document.createElement('div');
 
-    // Clear previous content
-    const fileContentElement = document.getElementById('log-file-content');
-    fileContentElement.innerHTML = '';
+    const wordElements = line.split(" ").map(word => {
+        const span = document.createElement('span');
+        span.textContent = word.trim() + " ";
+        return span;
+    });
 
-    if (data.lines) {
-        data.lines.forEach(line => {
-            const lineElement = document.createElement('div');
+    const replaceUsername = (index) => {
+        const username = wordElements[index]?.textContent.trim() ?? "";
+        let className = "";
 
-            let wordElements = line.split(" ").map((word, _index, _array) => {
-                let span = document.createElement('span');
-                span.textContent = word.trim() + " ";
-                return span;
-            });
+        if (username.toLowerCase().includes('bot')) className = 'username-bot';
+        else if (username.includes(boomFavUsername)) className = 'username-fav';
+        else className = 'username';
 
-            let replaceUsername = (index) => {
-                let username = wordElements[index].textContent.trim();
-                let className = "";
+        if (wordElements[index]) wordElements[index].className = className;
+    };
 
-                if (username.toLowerCase().includes('bot')) {
-                    className = 'username-bot';
-                } else if (username.includes(boomFavUsername)) {
-                    className = 'username-fav';
-                } else {
-                    className = 'username';
-                }
+    if (/\w+ boomed .* for \d+/g.test(line)) replaceUsername(0);
+    else if (/.* \w+'s \w+ hit a random boom streak of \d!/g.test(line)) replaceUsername(3);
+    else if (/.* \w+ earned a SUPER boom with \dx\d booms on \w+/g.test(line)) replaceUsername(1);
+    else if (/.* \w+ is on course for a drought/g.test(line)) replaceUsername(3);
+    else if (/.* \w+ imported \d boom.* from/g.test(line)) replaceUsername(1);
+    else if (/.* \w+ is chaining boom imports/g.test(line)) replaceUsername(1);
 
-                wordElements[index].className = className;
-            }
-
-            if (/\w+ boomed .* for \d+/g.test(line)) {
-                replaceUsername(0);
-            } else if (/.* \w+'s \w+ hit a random boom streak of \d!/g.test(line)) {
-                replaceUsername(3);
-            } else if (/.* \w+ earned a SUPER boom with \dx\d booms on \w+/g.test(line)) {
-                replaceUsername(1);
-            } else if (/.* \w+ is on course for a drought/g.test(line)) {
-                replaceUsername(3);
-            } else if (/.* \w+ imported \d boom.* from/g.test(line)) {
-                replaceUsername(1);
-            } else if (/.* \w+ is chaining boom imports/g.test(line)) {
-                replaceUsername(1);
-            }
-
-            for (let wordElement of wordElements) {
-                lineElement.appendChild(wordElement);
-            }
-            // lineElement.textContent = lineText;
-            fileContentElement.appendChild(lineElement);
-        }
-        );
-    }
-
-    setTimeout(fetchLogFileContent,5000);
-    
-    logsLoaded = true;
+    wordElements.forEach(el => lineElement.appendChild(el));
+    return lineElement;
 }
 
-let boomFavUsername = "1234567890";
+function renderChatItem(payload) {
+    const line = payload.text;
+    const lineElement = document.createElement('div');
 
-async function fetchBoommeterFileContent() {
-    const data = await boomFetch('/read_boommeter_file');
+    let message = '';
+    let username = '';
+    let usernameElement = null;
 
-    // Clear previous content
-    const fileContentElement = document.getElementById('boommeter-file-content');
-    fileContentElement.innerHTML = '';
+    if (line.includes(':')) {
+        [username, message] = line.split(/:(.*)/);
+        message = message ?? '';
 
-    if (data.lines) {
-        data.lines.forEach(line => {
-            const lineElement = document.createElement('div');
-            const poll = parsePollLine(line);
+        usernameElement = document.createElement('span');
 
-            let message = '';
-            let username = '';
-            let usernameElement = null;
-
-            // Handle polls specifically
-            if (poll) {
-                fileContentElement.appendChild(renderPoll(poll));
-                return;
-            }
-
-            if (line.includes(':')) {
-                [username,message] = line.split(/:(.+)/);
-                usernameElement = document.createElement('span');
-                if (username.toLowerCase().includes('boombot') || username.toLowerCase().includes('pollbot')) {
-                    usernameElement.className = 'username-bot';
-                } else if (username === boomFavUsername || username === "*" + boomFavUsername) {
-                    usernameElement.className = 'username-fav';
-                } else {
-                    usernameElement.className = 'username';
-                }
-                usernameElement.textContent = username + ': ';
-            } else {
-                message = line.trim();
-            }
-
-            const messageElement = document.createElement('span');
-            const words = message.split(' ');
-
-            words.forEach( (word, index) => {
-                const wordElement = document.createElement('span');
-                if (index === 1 && word.startsWith('/')) {
-                    wordElement.style.fontStyle = 'italic';
-                }
-                if (/^@[a-zA-z]+$/.test(word)) {
-                    if (word.toLowerCase().includes('bot')) {
-                        wordElement.className = 'username-bot';
-                    } else if (word === "@" + boomFavUsername) {
-                        wordElement.className = 'username-fav';
-                    } else {
-                        wordElement.className = 'username';
-                    }
-                }
-                wordElement.textContent = word + ' ';
-                messageElement.appendChild(wordElement);
-            }
-            );
-            if (usernameElement != null) {
-                lineElement.appendChild(usernameElement);
-            }
-            lineElement.appendChild(messageElement);
-            fileContentElement.appendChild(lineElement);
+        if (username.toLowerCase().includes('boombot') || username.toLowerCase().includes('pollbot')) {
+            usernameElement.className = 'username-bot';
+        } else if (username === boomFavUsername || username === "*" + boomFavUsername) {
+            usernameElement.className = 'username-fav';
+        } else {
+            usernameElement.className = 'username';
         }
-        );
+
+        usernameElement.textContent = username + ': ';
+    } else {
+        message = line.trim();
     }
 
-    setTimeout(fetchBoommeterFileContent,1000)
-    
+    const messageElement = document.createElement('span');
+    const words = message.split(' ');
+
+    words.forEach((word, index) => {
+        const wordElement = document.createElement('span');
+
+        // Italicize slash command (2nd word)
+        if (index === 1 && word.startsWith('/')) {
+            wordElement.style.fontStyle = 'italic';
+        }
+
+        // Mention highlighting
+        if (/^@[a-zA-Z]+$/.test(word)) {
+            if (word.toLowerCase().includes('bot')) {
+                wordElement.className = 'username-bot';
+            } else if (word === "@" + boomFavUsername) {
+                wordElement.className = 'username-fav';
+            } else {
+                wordElement.className = 'username';
+            }
+        }
+
+        wordElement.textContent = word + ' '; // This saves ASCII spacing on accident
+        messageElement.appendChild(wordElement);
+    });
+
+    if (usernameElement) {
+        lineElement.appendChild(usernameElement);
+    }
+    lineElement.appendChild(messageElement);
+
+    return lineElement;
+}
+
+function renderFileFully(view) {
+    const frag = document.createDocumentFragment();
+
+    for (const id of view.order) {
+        const item = view.items.get(id);
+        if (!item) continue;
+
+        let el;
+        if (item.type === 'log') {
+            el = renderLogItem(item.payload);
+        } else if (item.type === 'chat') {
+            el = renderChatItem(item.payload);
+        } else if (item.type === 'poll') {
+            const poll = parsePollLine(item.payload.text);
+            el = poll ? renderPoll(poll) : renderChatItem(item.payload);
+        } else {
+            el = renderLogItem(JSON.stringify(item.payload));
+        }
+
+        frag.appendChild(el);
+    }
+
+    view.container.innerHTML = '';
+    view.container.appendChild(frag);
+}
+
+function applyActions(view, actions) {
+    for (const a of actions || []) {
+        if (a.op === 'drop') {
+            view.items.delete(a.id);
+            continue;
+        }
+
+        if (a.op === 'append') {
+            view.items.set(a.id, { type: a.type, payload: a.payload });
+
+            // Scroll to top when line added
+            requestAnimationFrame(() => {
+                view.container.scrollTo({top: 0, behavior: 'smooth'});
+            });
+            continue;
+        }
+
+        if (a.op === 'update') {
+            const exists = view.items.get(a.id);
+            if (exists) {
+                view.items.set(a.id, { type: exists.type, payload: a.payload });
+            } else {
+                // Treat missed update as append
+                view.items.set(a.id, { type: a.type ?? 'log', payload: a.payload });
+            }
+            continue;
+        }
+    }
+}
+
+let boomFavUsername = null;
+
+async function fetchLogFileContent() {
+    const data = await boomFetch('/read_log_file', { full: logView.firstLoad });
+    if (!boomFavUsername) await fetchBoomFavorite();
+
+    if (logView.firstLoad) {
+        logView.container.innerHTML = '';
+        logView.items.clear();
+        logView.firstLoad = false;
+    }
+
+    // Change map to represent all IDs
+    applyActions(logView, data.actions)
+
+    // Set order from server
+    logView.order = data.order || [];
+
+    // Render each line in order
+    renderFileFully(logView)
+
+    logsLoaded = true;
+    setTimeout(fetchLogFileContent, 5000);
+}
+
+async function fetchBoommeterFileContent() {
+    const data = await boomFetch('/read_boommeter_file', { full: chatView.firstLoad });
+    if (!boomFavUsername) await fetchBoomFavorite();
+
+    if (chatView.firstLoad) {
+        chatView.container.innerHTML = '';
+        chatView.items.clear();
+        chatView.firstLoad = false;
+    }
+
+    // Change map to represent all IDs
+    applyActions(chatView, data.actions)
+
+    // Set order from server
+    chatView.order = data.order || [];
+
+    // Render each line in order
+    renderFileFully(chatView)
+
     chatLoaded = true;
+    setTimeout(fetchBoommeterFileContent, 1000)
 }
 
 window.onload = function() {

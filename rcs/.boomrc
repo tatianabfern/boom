@@ -215,6 +215,7 @@
 # 2.8.10 - check if user is root and if USER is unset on source
 # 2.8.11 - bar exit handling improved to prevent lingering bars
 # 2.8.12 - chat env tracks history and can use up/down arrows to navigate, some 3.0.0 features in beta
+# 2.8.13 - BOOMNOWEEKENDFAV has more robust handling in boomstoday, boom favor, boomsession import, and chat /boomstoday
 
 DOOMBOOM=
 if [ -z "$USER" ]; then
@@ -320,7 +321,7 @@ fi
 
 ###Function bang
 # "\t${B}bang${N} [NUM]";
-# "\t\tbamg will print NUM (default 1) booms to the terminal!";
+# "\t\tbang will print NUM (default 1) booms to the terminal!";
 # "\t\tthis is useful to run with \`chat \$(bang X)\` to put X booms in chat";
 ###
 bang() {
@@ -486,8 +487,14 @@ fi
 
 _boommeter() {
   BOOM_CMDNO=$(printf '%s' "${BOOM_MAGICPROMPT@P}")
-  if [[ "$_SILENTBOOM" == "yes" ]]; then _boommeterrunner &>/dev/null; return
-  else _boommeterrunner; fi
+  if [[ "$_SILENTBOOM" == "yes" ]]; then
+    _boommeterrunner &>/dev/null
+    BOOMPREV_HISTCMD=$HISTCMD
+    BOOMPREV_CMDNO=$BOOM_CMDNO
+    return
+  else
+    _boommeterrunner
+  fi
 
   # Doom if doomed elsewhere - persistent doom
   if [[ -w "$_doomTracker" && "$(cat $_doomTracker)" != "$DOOMBOOM" ]]; then if [[ "$(cat $_doomTracker)" =~ "yes" ]]; then clear; else export AUTOBOOMBOT=; echo $_BE_BOOM$_BE_BOOM WE BRING THE BOOM $_BE_BOOM$_BE_BOOM; fi; DOOMBOOM=$(cat $_doomTracker); fi
@@ -580,9 +587,9 @@ _boommeterrunner() {
 
       local nofavor=
       [[ -n "$BOOMNOWEEKENDFAV" && " 0 6 " =~ " $(date +%w) " ]] && nofavor=y
-      if [[ -w $_boomFavor && -z "$nofavor" ]]; then
+      if [[ -w $_boomFavor ]]; then
         # Reroll favorite each day
-        if [ "$(TZ=$BOOMTZ date -d @$(stat -c %Y $_boomFavor) +%d)" != "$(TZ=$BOOMTZ date +%d)" ]; then
+        if [[ "$(TZ=$BOOMTZ date -d @$(stat -c %Y $_boomFavor) +%d)" != "$(TZ=$BOOMTZ date +%d)" && -z "$nofavor" ]]; then
           local countuser
           local newfav=$(
           while read line; do
@@ -1223,10 +1230,20 @@ boom() {
           /$BOOMUSERDIR/$BOOMBOSS/$BOOMINSTALL/.boomtables.py "$(_jsonifyboomfreqs | sed -re s/,?erase//g)" 3.0 "rare"
         ;;
         board_today_)
-          if [[ "$(TZ=$BOOMTZ date -d @$(stat -c %Y $_boomFavor) +%d)" != "$(TZ=$BOOMTZ date +%d)" ]]; then
+          local nofavor=
+          [[ -n "$BOOMNOWEEKENDFAV" && " 0 6 " =~ " $(date +%w) " ]] && nofavor=y
+
+          local date="$(stat -c %y $_boomFavor | sed -e 's/[0-9].\(..\)-\([0-9].-[0-9].\) .*/\2-\1/')"
+          local descriptor=
+
+          if [[ "$(TZ=$BOOMTZ date -d @$(stat -c %Y $_boomFavor) +%d)" != "$(TZ=$BOOMTZ date +%d)" && -z $nofavor ]]; then
             echo nobody has boomed today...
+          elif [[ -n $nofavor ]]; then
+            descriptor="weekend"
+            date="as of $date"
           fi
-          echo Total booms $(stat -c %y $_boomFavor | sed -e 's/[0-9].\(..\)-\([0-9].-[0-9].\) .*/\2-\1/'): && sed -ne "2p" $_boomFavor | sed -ne "s/ /\n/gp" | grep [a-z] | sort | uniq -c | sort -nr
+
+          echo Total ${descriptor+$descriptor }booms $date: && sed -ne "2p" $_boomFavor | sed -ne "s/ /\n/gp" | grep [a-z] | sort | uniq -c | sort -nr
         ;;
         board_top_)
           local num=5
@@ -1736,11 +1753,18 @@ boom() {
     ;;
     favorite_)
       local day
-      if [ "$(TZ=$BOOMTZ date -d @$(stat -c %Y $_boomFavor) +%d)" == "$(TZ=$BOOMTZ date +%d)" ]; then
+      local nofavor=
+      [[ -n "$BOOMNOWEEKENDFAV" && " 0 6 " =~ " $(date +%w) " ]] && nofavor=y
+      if [[ "$(TZ=$BOOMTZ date -d @$(stat -c %Y $_boomFavor) +%d)" == "$(TZ=$BOOMTZ date +%d)" && -z $nofavor ]]; then
         local curfav=$(sed -n 1p $_boomFavor)
         echo $_BE_BOOM🏆 $curfav is BoomBot\'s favorite user today 🏆$_BE_BOOM
 
         day=tomorrow
+      elif [[ -n $nofavor || "5" == "$(date +%w)" ]]; then
+        local curfav=$(sed -n 1p $_boomFavor)
+        echo $_BE_BOOM🏆 $curfav is BoomBot\'s favorite user for the weekend 🏆$_BE_BOOM
+
+        day=Monday
       else
         echo "$_BE_BOOM🏆 nobody has boomed yet today 🏆$_BE_BOOM"
         day=today
@@ -2436,14 +2460,18 @@ _chat_cmds() {
     ;;
     /boomstoday_all_)
       local target
+      local nofavor=
+      [[ -n "$BOOMNOWEEKENDFAV" && " 0 6 " =~ " $(date +%w) " ]] && nofavor=y
+
       while IFS= read line; do
         if [[ ! "$line" =~ " booms " && $(($RANDOM % 3)) -eq 2 && -z "$target" ]]; then
           target=$(echo $line | awk '{print $2}')
         fi
         echo "boombot: $_BE_BOT $line" >> $_boommeterLog
-      done < <(tac <(echo Total booms $(stat -c %y $_boomFavor | sed -e 's/[0-9].\(..\)-\([0-9].-[0-9].\) .*/\2-\1/'): && sed -ne "2p" $_boomFavor | sed -ne "s/ /\n/gp" | grep [a-z] | sort | uniq -c | sort -nr))
+      done < <(tac <(boom board today))
+
       if [ -z "$target" ]; then target=$USER; fi
-      if [[ "$(TZ=$BOOMTZ date -d @$(stat -c %Y $_boomFavor) +%d)" == "$(TZ=$BOOMTZ date +%d)" ]]; then
+      if [[ "$(TZ=$BOOMTZ date -d @$(stat -c %Y $_boomFavor) +%d)" == "$(TZ=$BOOMTZ date +%d)" || -n $nofavor ]]; then
         echo boombot: $_BE_BOT BoomBot $(echo thinks knows expects decided votes hopes | xargs shuf -n1 -e) $target will get \
           $(echo more max revoked invalid 10 25 50 infinite negative super BoomBot | xargs shuf -n1 -e) booms today >> $_boommeterLog
       else

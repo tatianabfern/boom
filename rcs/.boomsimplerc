@@ -258,7 +258,9 @@ _checkForBoomImports() {
           _boomlog $cmd $score $remotehost
 
           # Add entry for favor drawing if favor has been rolled for the day
-          if [ -w $_boomFavor ] && [ "$(TZ=$BOOMTZ date -d @$(stat -c %Y $_boomFavor) +%d)" == "$(TZ=$BOOMTZ date +%d)" ]; then
+          local nofavor=
+          [[ -n "$BOOMNOWEEKENDFAV" && " 0 6 " =~ " $(date +%w) " ]] && nofavor=y
+          if [ -w $_boomFavor ] && [[ "$(TZ=$BOOMTZ date -d @$(stat -c %Y $_boomFavor) +%d)" == "$(TZ=$BOOMTZ date +%d)" || -n $nofavor ]]; then
             sed -i "2 s/$/ $USER/" $_boomFavor
           fi
         done

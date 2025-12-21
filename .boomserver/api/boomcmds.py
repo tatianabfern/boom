@@ -83,13 +83,12 @@ async def background_runner(prefix):
         await asyncio.sleep(5)
 
 async def refresh_results(api_key, command):
-    global latest_cmd_results
-
     valid_key, username = ba.validate_key(api_key)
     if not valid_key: return
 
     if api_key not in latest_cmd_results:
-        latest_cmd_results[api_key] = {}
+        with cache_lock:
+            latest_cmd_results[api_key] = {}
 
     user_cfg = bj.load_json(f"data/env/{username}.json")
     os.environ['BOOMTABLECOLS'] = user_cfg.get('columns', '')
