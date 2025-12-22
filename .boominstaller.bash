@@ -117,6 +117,7 @@ BOOMINSTALL=${EXPECTED_BOOMINSTALL#$HOME/}
 BOOMRCS=${EXPECTED_BOOMRCS#$HOME/}/rcs
 BOOMUSERDIR=${HOME%/$USER}
 BOOMUSERDIR=${BOOMUSERDIR#/}
+BOOM_SKIPPERMCHECK=$1
 echo Sourcing $BOOMRC_FILE to generate .boomconfig and user-specific files
 if [ -f "$BOOMRC_FILE" ]; then
   PROMPT_COMMAND=_boommeter source $BOOMRC_FILE
@@ -137,6 +138,11 @@ echo Setting BOOMRCS to ${EXPECTED_BOOMRCS#$HOME/}
 echo "readonly BOOMRCS=\"${EXPECTED_BOOMRCS#$HOME/}/rcs\" &>/dev/null" >> $BOOMCFGFILE
 echo Setting BOOMUSERDIR to $BOOMUSERDIR
 echo "readonly BOOMUSERDIR=\"$BOOMUSERDIR\" &>/dev/null" >> $BOOMCFGFILE
+
+if [[ "$1" == "skippermcheck" ]]; then
+  echo Setting perm check skip in $BOOMCFGFILE
+  echo -e "\nBOOM_SKIPPERMCHECK=skippermcheck" >> $BOOMCFGFILE
+fi
 
 echo
 echo To get started, source ~/.boomrc!

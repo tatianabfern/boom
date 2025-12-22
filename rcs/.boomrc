@@ -216,6 +216,7 @@
 # 2.8.11 - bar exit handling improved to prevent lingering bars
 # 2.8.12 - chat env tracks history and can use up/down arrows to navigate, some 3.0.0 features in beta
 # 2.8.13 - BOOMNOWEEKENDFAV has more robust handling in boomstoday, boom favor, boomsession import, and chat /boomstoday
+# 2.8.14 - `boom conf` updated with more BOOMCFGFILE optional vars for boss
 
 DOOMBOOM=
 if [ -z "$USER" ]; then
@@ -234,6 +235,10 @@ if [[ "$USER" == "root" ]]; then
     fi
     echo boomrc: Suppress this warning by sourcing with \`BOOMWARN=no source $BASH_SOURCE\`
   fi
+fi
+if [[ "$USER" =~ " " ]]; then
+  echo boomrc: ERROR: Usernames with spaces will break the boom. Please do not source with a username containing a space.
+  DOOMBOOM=yes
 fi
 
 # Multiple ways to have BOOMCFGFILE set:
@@ -281,7 +286,7 @@ if [ -z "$BOOMSITERUNNER" ]; then
   checkConfigArgs BOOMPORT    9029
   checkConfigArgs BOOMSITE    "http://$HOSTNAME:$BOOMPORT"
   checkConfigArgs BOOMSITECMD "firefox --new-tab"
-  unset tmpconfig
+  unset tmpconfig checkConfigArgs
 
   source $BOOMCFGFILE
 else
@@ -291,7 +296,7 @@ fi
 AUTOBOOMBOT=
 _SILENTBOOM=no
 BOOMPREV_HISTCMD=$HISTCMD # int currrent cmd num in history
-readonly _BOOMDEFAULTTIMEOUT=900 &>/dev/null
+[[ -z "$_BOOMDEFAULTTIMEOUT" ]] && readonly _BOOMDEFAULTTIMEOUT=900 &>/dev/null
 readonly BOOM_MAGICPROMPT='\#' &>/dev/null
 BOOMPREV_CMDNO=$(printf '%s' "${BOOM_MAGICPROMPT@P}")
 
@@ -352,21 +357,25 @@ _boomIntroTxt() {
   if [ -n "$1" ]; then echo -e "$_BE_BOOM This help is no longer updated after patch 1.5.5, but is still here for boom setup information on first source"; fi
 }
 
-if [ ! -d "/$BOOMUSERDIR/$USER" ]; then echo -e "FATAL: Nothing will work - please stop booming\n\n"; export DOOMBOOM=yes; fi
+if [ ! -d "/$BOOMUSERDIR/$USER" ]; then echo -e "boomrc: FATAL: Home directory not found\n\n"; export DOOMBOOM=yes; fi
 if [[ "/$BOOMUSERDIR/$USER/$BOOMINSTALL" != "$(echo -n ~/$BOOMINSTALL)" ]]; then export DOOMBOOM=yes; fi
 if [ ! -d /$BOOMUSERDIR/$USER/$BOOMINSTALL ]; then mkdir -p /$BOOMUSERDIR/$USER/$BOOMINSTALL &>/dev/null; fi
 if [ ! -w /$BOOMUSERDIR/$BOOMBOSS/$BOOMINSTALL ]; then export DOOMBOOM=yes; fi
 
 # Each dir to boominstall needs to be accessible by all users
-longpath=
-EXP_BOOMINSTALL="/$BOOMUSERDIR/$USER/$BOOMINSTALL"
-for path in ${EXP_BOOMINSTALL//\// }; do
-  if [[ ! " 777 755 " =~ " $(stat -c "%a" "$longpath/$path") " ]]; then
-    chmod 755 "$longpath/$path" || export DOOMBOOM=yes
-  fi
-  longpath+="/$path"
-done
-unset longpath EXP_BOOMINSTALL
+if [[ -z "$BOOM_SKIPPERMCHECK" ]]; then
+  longpath=
+  EXP_BOOMINSTALL="/$BOOMUSERDIR/$USER/$BOOMINSTALL"
+  for path in ${EXP_BOOMINSTALL//\// }; do
+    if [[ ! " 777 755 " =~ " $(stat -c "%a" "$longpath/$path") " ]]; then
+      chmod 755 "$longpath/$path" || export DOOMBOOM=yes
+    fi
+    longpath+="/$path"
+  done
+  unset longpath EXP_BOOMINSTALL
+else
+  \chmod 777 ~/$BOOMINSTALL
+fi
 
 case $HISTCONTROL in
   *ignoreboth*) ;&
@@ -395,6 +404,7 @@ _boomTimeout=/$BOOMUSERDIR/$BOOMBOSS/$BOOMINSTALL/.boomtimeout
 _boomFavor=/$BOOMUSERDIR/$BOOMBOSS/$BOOMINSTALL/.boomfavor
 _boomEmojis=~/$BOOMINSTALL/.boomemojis
 _boomEmojiSource=/$BOOMUSERDIR/$BOOMBOSS/$BOOMINSTALL/.boomemojis
+
 [[ ! " $HISTIGNORE " =~ " chat* " ]] && export HISTIGNORE="${HISTIGNORE:+$HISTIGNORE:}chat*"
 if [[ -e "$_boomUsers" &&  ! " $(cat $_boomUsers | xargs) " =~ " $USER " ]]; then
   echo " $USER" >> $_boomUsers
@@ -439,6 +449,82 @@ if [ ! -d $_boomImports ]; then \mkdir -p $_boomImports &>/dev/null; fi
 _boomSession=$_boomImports/.sessionlog
 _boomImportReady=$_boomImports/.import
 if [ ! -f $_boomSession ]; then echo -n "" > $_boomSession; \chmod 644 $_boomSession &>/dev/null; fi
+
+# BOOM stat tracking
+if [[ -n "$BOOMSTATTRACKING" && -z "$BOOMSITERUNNER" ]]; then
+  statdir=/$BOOMUSERDIR/$BOOMBOSS/$BOOMINSTALL/wrapped
+  statfile=$statdir/.$(date +%Y)-boomstats
+  if [[ ! -d "$statdir" ]]; then \mkdir $statdir; \chmod 777 $statdir; fi
+
+  __populateStatTracking() {
+    local rankfile=/$BOOMUSERDIR/$1/$BOOMINSTALL/.boomrankings
+    if [ ! -r "$rankfile" ]; then return; fi
+    echo -n " $1" >> $2 # user
+    echo -n " $(echo $(($(wc -w $rankfile | awk '{print $1}')-$(wc -l $rankfile | awk '{print $1}'))))" >> $2 # total
+    echo -n " 0" >> $2 # longest drought
+    echo -n " 0" >> $2 # fav count
+    echo -n " 0" >> $2 # hall entries
+    echo -n " 0" >> $2 # chat commands
+
+    local topcmds=$(sort -k2 -nr <(while read line; do
+                                     echo -n "$(echo "$line" | awk '{print $2}') ";
+                                     echo $(($(wc -w <(echo $line) | awk '{print $1}')-2));
+                                   done < <(cat $rankfile | awk '{words = gsub(/ /, " ", $0); print words " " $0}' | sort -nr | head -n 10)) |
+                    sed -e 's/ /;/' | xargs | sed 's/ /|/g')
+    echo " $topcmds" >> $2 # top commands at start of year
+  }
+
+  # Create new statfile if new year
+  if [[ ! -f "$statfile" ]]; then
+    while read user; do
+      __populateStatTracking $user $statfile
+    done < $_boomUsers
+    \chmod 777 $statfile
+  fi
+
+  # Add self to statfile if not in already
+  if ! grep -q "^ $USER " $statfile; then
+    __populateStatTracking $USER $statfile
+  fi
+
+  _boomStatTracker=$statfile
+  unset statdir statfile __populateStatTracking
+
+  _boomStatSet() {
+    local file="$_boomStatTracker" user="$1" field="$2" value="$3"
+    local tmp="$(mktemp --tmpdir="${file%/*}" ".${file##*/}.tmp.XXX")" || return 1
+
+    (
+      flock -x 9
+
+      awk -v u="$user" -v f="$field" -v v="$value" '
+        BEGIN { OFS=" " }
+        $1 == u { $f = v }
+        { print }
+      ' "$file" | sed 's/^[^ ]/ &/' > "$tmp" && \mv -f "$tmp" "$file"
+    ) 9<>"$file"
+
+    \rm -f "$tmp" 2>/dev/null
+    \chmod 777 "$file"
+  }
+  _boomStatInc() {
+    local file="$_boomStatTracker" user="$1" field="$2" delta="${3:-1}"
+    local tmp="$(mktemp --tmpdir="${file%/*}" ".${file##*/}.tmp.XXX")" || return 1
+
+    (
+      flock -x 9
+
+      awk -v u="$user" -v f="$field" -v d="$delta" '
+        BEGIN { OFS=" " }
+        $1==u { $f += d }
+        { print }
+      ' "$file" | sed 's/^[^ ]/ &/' > "$tmp" && \mv -f "$tmp" "$file"
+    ) 9<>"$file"
+
+    \rm -f "$tmp" 2>/dev/null
+    \chmod 777 "$file"
+  }
+fi
 
 [ ! -w "$_boomTracker" ] && export DOOMBOOM=yes
 [ ! -w "$_boomStreak" ] && export DOOMBOOM=yes
@@ -580,9 +666,15 @@ _boommeterrunner() {
       boommeter $cmd _log
       local deaddrought=$(cat $_boomDrought)
       echo -n "0" > $_boomDrought
-      local currentrec=$(cat $_boomDroughtRecord | grep $USER | awk '{print $2}')
+      local currentrec=$(awk '{print $2}' <(grep "^ $USER " $_boomDroughtRecord))
       if [[ "$deaddrought" -gt "$currentrec" ]]; then
         sed -i -e "s/^ $USER $currentrec$/ $USER $deaddrought/" $_boomDroughtRecord
+      fi
+      if [[ -n "$BOOMSTATTRACKING" ]]; then
+        local curryearrec=$(awk '{print $3}' <(grep "^ $USER " $_boomStatTracker))
+        if [[ "$deaddrought" -gt "$curryearrec" ]]; then
+          _boomStatSet $USER 3 $deaddrought
+        fi
       fi
 
       local nofavor=
@@ -600,6 +692,7 @@ _boommeterrunner() {
           done < <(sed -n "2s/ /\n/gp" $_boomFavor | \grep [a-z] | sort | uniq -c | sed -e 's/[8-9"]/8/' -e 's/\([0-9]\)\{2,\}/8/g') |
           xargs shuf -n1 -e)
           echo -e "$newfav\n $USER" > $_boomFavor
+          [[ -n "$BOOMSTATTRACKING" ]] && _boomStatInc $newFav 4
           echo boombot: $_BE_BOT BoomBot\'s favorite user today is $newfav! >> $_boommeterLog
         else
           # Add entry for favor drawing
@@ -696,6 +789,7 @@ boommeter() {
     if $logrun; then
       echo " $USER $(TZ=$BOOMTZ date -u +%s) $1" >> $_boomHoF
       echo "$_BE_BOOM$_BE_BOOM$_BE_BOOM 6 BIG BOOMS - Welcome to the BOOM hall! $_BE_BOOM$_BE_BOOM$_BE_BOOM" >> $_boomUserLog
+      [[ -n "$BOOMSTATTRACKING" ]] && _boomStatInc $USER 5
     fi
   fi
   [ -n "$mult" ] && echo "$_BE_BOOM$_BE_SUPER$_BE_BOOM $USER earned a SUPER boom with ${dispscore}x$mult booms on $1! $_BE_BOOM$_BE_SUPER$_BE_BOOM" >> $_boomUserLog
@@ -1655,6 +1749,15 @@ boom() {
       _boss && echo \# Set this to tune boombot\'s random chat freq - must =~ \[1-9\]+ for bot to chat
       _boss && echo BOOMBOTCHATFREQ=${BOOMBOTCHATFREQ:-225}
       _boss && echo
+      _boss && echo \# Set this to change the default timeout length in seconds for chat /timeout
+      _boss && echo readonly _BOOMDEFAULTTIMEOUT=${_BOOMDEFAULTTIMEOUT} \&\>/dev/null
+      _boss && echo
+      _boss && echo \# This is set in the cfg if boominstaller was run with skippermcheck
+      _boss && echo BOOM_SKIPPERMCHECK=$BOOM_SKIPPERMCHECK
+      _boss && echo
+      _boss && echo \# Set this to enable stat tracking for yearly \`boom wrapped\` information!
+      _boss && echo BOOMSTATTRACKING=$BOOMSTATTRACKING
+      _boss && echo
       echo Optional user-defined variables to set before source:
       _boss && echo \# To globally change default user-defined vars, set them in the BOOMCFGFILE!
       _boss && echo
@@ -1673,6 +1776,9 @@ boom() {
       echo
       echo \# Use this to set default columns for boom boards \(format \"USER USER USER ...\"\)
       echo BOOMTABLECOLS=\"${BOOMTABLECOLS:-$(cat $_boomUsers | xargs)}\"
+      echo
+      echo \# Set this to \"no\" to suppress all warnings when sourcing the .boomrc
+      echo BOOMWARN=\"${BOOMWARN}\"
       echo
       echo Commands with independent configuration:
       echo boombar conf \(boomdocs boombar\)
@@ -1890,6 +1996,19 @@ boom() {
         echo You have boomed a total of $(echo $(($(wc -w $_boomRankings | awk '{print $1}')-$(wc -l $_boomRankings | awk '{print $1}')))) times!
       fi
     ;;
+    wrapped_)
+      # Tracker for per-year stats enabled by setting BOOMSTATTRACKING in BOOMCFGFILE
+      # File format:
+      # User BoomCount LongestDrought FavCount HallEntries ChatCmds TopCommandsStart(|delimited)
+      if [[ -z "$BOOMSTATTRACKING" ]]; then
+        echo Stat tracking is currently disabled. Ask $BOOMBOSS to turn it on!
+      fi
+      if [[ "$(date +%m)" != "12" ]]; then
+        echo Come back in December to show wrapped results!
+      fi
+
+      # Parse file here and compare to current user's stats, maybe compare against other users too
+    ;;
     zone_)
       case "zone_$2_" in
         zone_summary_)
@@ -1966,7 +2085,6 @@ boom() {
           done
         ;;
         *)
-          if [[ "$DOOMBOOM" == "yes" ]]; then echo bash: boomzone: command not found; return; fi
           command $BOOMSITECMD $BOOMSITE &>/dev/null & disown
         ;;
       esac
@@ -2387,10 +2505,14 @@ _chat_cmds() {
   else
     return
   fi
+
+  # Flags for completion
   flag=all
   if [[ " timeout " =~ " $cmd " ]]; then
     flag=admin
   fi
+
+  [[ -n "$BOOMSTATTRACKING" ]] && _boomStatInc $USER 6
   case /${cmd}_${flag}_ in
     /ascii_all_)
       local maxlinechars=57 maxlines=35
@@ -2468,7 +2590,7 @@ _chat_cmds() {
           target=$(echo $line | awk '{print $2}')
         fi
         echo "boombot: $_BE_BOT $line" >> $_boommeterLog
-      done < <(tac <(boom board today))
+      done < <(tac <(boom board today | grep -v "nobody has boomed"))
 
       if [ -z "$target" ]; then target=$USER; fi
       if [[ "$(TZ=$BOOMTZ date -d @$(stat -c %Y $_boomFavor) +%d)" == "$(TZ=$BOOMTZ date +%d)" || -n $nofavor ]]; then
@@ -2843,6 +2965,9 @@ _boom() {
   options=($(declare -f boom | sed -ne '/^\s.*)$/ s/\s*\(.*\)_)/\1/p' | grep -v [*_]))
   suboptions=($(declare -f boom | sed -ne "\|^\s.*$3_.*_)$| s|\s*$3"'_\(.*\)_)|\1|p' | grep -v [*=] | grep -v '\(all\|me\|chat\|booms\)'))
 
+  # Option completion exclusions
+  [[ "$(date +%m)" != 12 ]] && options=("${options[@]//wrapped}")
+
   if [[ "$3" == "avg" && "3" == "${#COMP_WORDS[@]}" ]]; then
     COMPREPLY=($(compgen -W "$(cat $_boomRankings | grep -v '[{}]' | awk '{print $1}')" -- $2));
   elif [[ "$3" == "total" && "${#COMP_WORDS[@]}" == "3" ]]; then
@@ -3044,7 +3169,6 @@ fi
 #TODO: boom quest items - implementation of rewards/collectibles - this gamification is gonna be 3.0 probably
 #TODO: boombar - boombar notify? idea for temporary changes to boombar that revert back to prefix after x commands
 #TODO: /warning or /suspicious - fun to implement for admins but no real necessity... yet
-#TODO: hype occasionally roasts and roast occasionally hypes -- maybe? might just be annoying
 #TODO: /text numbers?
 #TODO: @everyone -<specific user>
 #TODO: KNOWNBUG: bug where exit doesn't exit on dead boomsession (one of 2 in same place closing)
@@ -3058,7 +3182,6 @@ fi
 #TODO: use more shell builtins for optimization - $EPOCHSECONDS instead of some dates, $BASH_REMATCH instead of some seds
 #TODO: maybe reward if X+ booms are imported at once to make up for missing super boom milestones (25 multiples)
 #TODO: de-duplicate chat completion by calling _boom with current args similiar to magic alias function - maybe just change args checked by if called with chat or boom
-#TODO: configure BOOMDEFAULTTIMEOUT in BOOMCFGFILE
 
 #CANCELLEDTODO: happy/sad boombot based on boombot mode activity: lots of work for what
 #CANCELLEDTODO: more boom mult situations?: need to not overdo mult... goal is avgs under 5 mostly, don't want to cheapen super booms
@@ -3068,6 +3191,7 @@ fi
 #CANCELLEDTODO: /timeout with duration: will probably just adjust default duration in future similar to fav entries
 #CANCELLEDTODO: /work for multiple people - nice instead of running 2 /work commands: this is too much /work
 #CANCELLEDTODO: fix problem emojis (emojis that should take up 2 spacs but take up 1): this is a terminal specific problem that can be fixed with customization
+#CANCELLEDTODO: hype occasionally roasts and roast occasionally hypes -- maybe? might just be annoying: decided it would be annoying
 
 #KNOWN"BUG": because we are keeping this "feature", new terminals can boom on startup and the first empty line after opening terminals can boom
 

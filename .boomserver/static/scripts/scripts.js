@@ -820,6 +820,7 @@ async function fetchLogFileContent() {
         logView.container.innerHTML = '';
         logView.items.clear();
         logView.firstLoad = false;
+        logView.items.set("log-empty", { type: "log", payload: { text: "No users have boomed yet!" } });
     }
 
     // Change map to represent all IDs
@@ -827,6 +828,7 @@ async function fetchLogFileContent() {
 
     // Set order from server
     logView.order = data.order || [];
+    logView.order = logView.order.length > 0 ? logView.order : ["log-empty"];
 
     // Render each line in order
     renderFileFully(logView)
@@ -843,6 +845,7 @@ async function fetchBoommeterFileContent() {
         chatView.container.innerHTML = '';
         chatView.items.clear();
         chatView.firstLoad = false;
+        chatView.items.set("log-empty", { type: "chat", payload: { text: "No chats to display. Run `chat COMMENT` to start the chat!" } });
     }
 
     // Change map to represent all IDs
@@ -850,6 +853,7 @@ async function fetchBoommeterFileContent() {
 
     // Set order from server
     chatView.order = data.order || [];
+    chatView.order = chatView.order.length > 0 ? chatView.order : ["log-empty"];
 
     // Render each line in order
     renderFileFully(chatView)

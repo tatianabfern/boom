@@ -38,9 +38,24 @@ document.addEventListener('keydown', function(event) {
     }
 
     if (event.key === "p" && fullyLoaded) {
-        window.pollDefault = !window.pollDefault;
-        Object.keys(window.pollUIState).forEach(key => {
-            window.pollUIState[key] = window.pollDefault;
+        const keys = Object.keys(window.pollUIState);
+
+        if (keys.length === 0) {
+            window.pollDefault = !window.pollDefault;
+            return;
+        }
+
+        const allOpen = keys.every(k => window.pollUIState[k] === true);
+        const allClosed = keys.every(k => window.pollUIState[k] === false);
+
+        let target;
+        if (allOpen) target = false;
+        else if (allClosed) target = true;
+        else target = !window.pollDefault;
+
+        window.pollDefault = target;
+        keys.forEach(k => {
+            window.pollUIState[k] = target;
         });
     }
 });
