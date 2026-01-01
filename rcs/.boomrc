@@ -217,6 +217,7 @@
 # 2.8.12 - chat env tracks history and can use up/down arrows to navigate, some 3.0.0 features in beta
 # 2.8.13 - BOOMNOWEEKENDFAV has more robust handling in boomstoday, boom favor, boomsession import, and chat /boomstoday
 # 2.8.14 - `boom conf` updated with more BOOMCFGFILE optional vars for boss
+# 2.8.15 - add NYE to NY holiday emojis - happy 2026
 
 DOOMBOOM=
 if [ -z "$USER" ]; then
@@ -458,13 +459,17 @@ if [[ -n "$BOOMSTATTRACKING" && -z "$BOOMSITERUNNER" ]]; then
 
   __populateStatTracking() {
     local rankfile=/$BOOMUSERDIR/$1/$BOOMINSTALL/.boomrankings
-    if [ ! -r "$rankfile" ]; then return; fi
+    if [ ! -r "$rankfile" ]; then return; fi # Users need at least 1 boom to start stat tracking
     echo -n " $1" >> $2 # user
     echo -n " $(echo $(($(wc -w $rankfile | awk '{print $1}')-$(wc -l $rankfile | awk '{print $1}'))))" >> $2 # total
     echo -n " 0" >> $2 # longest drought
     echo -n " 0" >> $2 # fav count
     echo -n " 0" >> $2 # hall entries
     echo -n " 0" >> $2 # chat commands
+    echo -n " 0" >> $2 # super booms
+    echo -n " 0" >> $2 # unused
+    echo -n " 0" >> $2 # unused
+    echo -n " 0" >> $2 # unused
 
     local topcmds=$(sort -k2 -nr <(while read line; do
                                      echo -n "$(echo "$line" | awk '{print $2}') ";
@@ -476,6 +481,7 @@ if [[ -n "$BOOMSTATTRACKING" && -z "$BOOMSITERUNNER" ]]; then
 
   # Create new statfile if new year
   if [[ ! -f "$statfile" ]]; then
+    echo boomrc: Setting up yearly stat tracking for boom wrapped, please do not ^C
     while read user; do
       __populateStatTracking $user $statfile
     done < $_boomUsers
@@ -669,6 +675,7 @@ _boommeterrunner() {
       local currentrec=$(awk '{print $2}' <(grep "^ $USER " $_boomDroughtRecord))
       if [[ "$deaddrought" -gt "$currentrec" ]]; then
         sed -i -e "s/^ $USER $currentrec$/ $USER $deaddrought/" $_boomDroughtRecord
+        \chmod 777 $_boomDroughtRecord 2>/dev/null
       fi
       if [[ -n "$BOOMSTATTRACKING" ]]; then
         local curryearrec=$(awk '{print $3}' <(grep "^ $USER " $_boomStatTracker))
@@ -692,7 +699,7 @@ _boommeterrunner() {
           done < <(sed -n "2s/ /\n/gp" $_boomFavor | \grep [a-z] | sort | uniq -c | sed -e 's/[8-9"]/8/' -e 's/\([0-9]\)\{2,\}/8/g') |
           xargs shuf -n1 -e)
           echo -e "$newfav\n $USER" > $_boomFavor
-          [[ -n "$BOOMSTATTRACKING" ]] && _boomStatInc $newFav 4
+          [[ -n "$BOOMSTATTRACKING" ]] && _boomStatInc $newfav 4
           echo boombot: $_BE_BOT BoomBot\'s favorite user today is $newfav! >> $_boommeterLog
         else
           # Add entry for favor drawing
@@ -749,7 +756,7 @@ boommeter() {
   local score=$(( $RANDOM % 8 + 1 ))
   local dispscore=$score
   local result=""
-  
+
   # Mult if quest complete
   local mult=$($logrun && _boomquest $1)
   [ -n "$mult" ] && echo "Congratulations! You completed the boom quest!"
@@ -792,7 +799,10 @@ boommeter() {
       [[ -n "$BOOMSTATTRACKING" ]] && _boomStatInc $USER 5
     fi
   fi
-  [ -n "$mult" ] && echo "$_BE_BOOM$_BE_SUPER$_BE_BOOM $USER earned a SUPER boom with ${dispscore}x$mult booms on $1! $_BE_BOOM$_BE_SUPER$_BE_BOOM" >> $_boomUserLog
+  if [ -n "$mult" ]; then
+    echo "$_BE_BOOM$_BE_SUPER$_BE_BOOM $USER earned a SUPER boom with ${dispscore}x$mult booms on $1! $_BE_BOOM$_BE_SUPER$_BE_BOOM" >> $_boomUserLog
+    [[ -n "$BOOMSTATTRACKING" ]] && _boomStatInc $USER 7
+  fi
   score=$((score*${mult:-1}))
 
   for i in $(seq 1 $score); do

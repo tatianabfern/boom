@@ -51,7 +51,7 @@ fi
 ### 🎆 New Year 🎆 ###
 ######################
 
-if [[ "$month" == "01" && $day -le 7 ]]; then
+if [[ "$month" == "01" && $day -le 7 ]] || [[ "$month$day" == "1231" ]]; then
   _BE_BOOM="🎇"
   # no _BE_HOLE
   _BE_BOT="🕺"

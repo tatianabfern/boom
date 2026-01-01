@@ -175,14 +175,14 @@ _boombarenv() {
         local boomstotal=
         boomstotal=$(grep -o $user <(sed -n 2p $_boomFavor) | uniq -c | awk '{print $1}');
         [[ -z "$boomstotal" ]] && boomstotal="0";
-        local usrstr=${user//[.]/}
+        local usrstr=${user//[.-]/_}
         export BOOMBAR_BTODAY_${usrstr}=${boomstotal% *};
       done
 
       # Find ranks from variables
       local first second third varname
       for varname in ${userlist[@]/#/BOOMBAR_BTODAY_}; do
-        varname=${varname//[.]/}
+        varname=${varname//[.-]/_}
         if [[ -z "$first" || ${!first} -lt ${!varname} ]]; then
           third=$second
           second=$first
@@ -212,7 +212,7 @@ _boombarenv() {
       # Call with PRINTENV
       if [[ "$2" == "VALIDOPTS" ]]; then
         echo -n "LASTBOOMS LASTNUM LASTCMD DROUGHTCMDS DROUGHTMINS DROUGHTRATIO_CPM BBMREMARK LASTUSERBOOM BOOMFAV "
-        echo -n "BTODAY_1NUM BTODAY_1NAME BTODAY_2NUM BTODAY_2NAME BTODAY_3NUM BTODAY_3NAME BTODAY_${USER//[.]/} "
+        echo -n "BTODAY_1NUM BTODAY_1NAME BTODAY_2NUM BTODAY_2NAME BTODAY_3NUM BTODAY_3NAME BTODAY_${USER//[.-]/_} "
         echo "BOOMPATCH"
       else
         echo "Available Auto-Updated \"Magic\" Variables:"
@@ -249,7 +249,7 @@ _boombarenv() {
         echo Set BOOMBAR_BBMOFF_ALT to \"unset\" to just ignore BBMREMARK when boombot mode is off
         echo This allows for BoomBot\'s remarks to just add more text to the prefix when in BBM
         echo
-        echo BTODAY_\<user//./\> will print booms today for any specific boomuser
+        echo BTODAY_\<user//\[.-\]/_\> will print booms today for any specific boomuser
         echo
         echo BOOMBAR_SHORTBAR can be PREFIX, SUFFIX, or \<text\> to get subbed in when full bar is too long
       fi
