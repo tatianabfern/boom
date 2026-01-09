@@ -24,11 +24,11 @@ _simpleboommeter() {
       X=${versionX_Y%.*}
       Y=${versionX_Y#*.}
       if ([ $X -eq 4 ] && [ $Y -ge 4 ]) || [ $X -gt 4 ]; then export $1=$(printf '%s' "${BOOM_MAGICPROMPT@P}")
-      else export $1=$(HISTTIMEFORMAT= history | tail -n 1 | awk '{print $1}') # this is a number
+      else export $1=$(fc -l -1 | head -n 1 | awk '{print $1}') # this is a number
       fi
     }
     _boomcmdno BOOMPREV_CMDNO
-    export BOOMPREV_HISTCMD=$(HISTTIMEFORMAT= history | tail -n 1 | awk '{print $2}') # this is the cmd itself
+    export BOOMPREV_HISTCMD=$(fc -ln -1 | head -n 1 | awk '{print $1}') # this is the cmd itself
     [[ ! "$HISTIGNORE" =~ "boomsu" ]] && HISTIGNORE="${HISTIGNORE:+$HISTIGNORE:}boomsu*"
     [[ ! "$HISTIGNORE" =~ "boomssh" ]] && HISTIGNORE="${HISTIGNORE:+$HISTIGNORE:}boomssh*"
     [[ ! "$HISTIGNORE" =~ "boomexec" ]] && HISTIGNORE="${HISTIGNORE:+$HISTIGNORE:}boomexec*"
@@ -71,14 +71,14 @@ _simpleboommeter() {
   if [ ! -w "$_boomTracker" ]; then export BOOMFIRSTRUN=fileerased; echo boommeter detected session closure - restarting; return; fi
   \chmod 666 $_boomRankings $_boomTracker &>/dev/null
 
-  local cmd=$(HISTTIMEFORMAT= history | tail -n 1 | awk '{print $2}')
+  local cmd=$(fc -ln -1 | head -n 1 | awk '{print $1}')
   case $1_ in
     __auto_)
       _boomcmdno BOOM_CMDNO
       if [[ "$(cat $_boomTracker)" =~ ^"_boomsu"$ ]]; then
         if [ $UID -eq 0 ]; then
           # Don't boom after executing (when becoming root)
-          cmd=$(HISTTIMEFORMAT= history | tail -n 1 | awk '{print $2}'); echo $cmd > $_boomTracker;
+          cmd=$(fc -ln -1 | head -n 1 | awk '{print $1}'); echo $cmd > $_boomTracker;
         else
           # Boom on exit (when returning to calling user)
           cmd=boomsu;
@@ -104,7 +104,7 @@ _simpleboommeter() {
             fi
         fi
       fi
-      export BOOMPREV_HISTCMD=$(HISTTIMEFORMAT= history | tail -n 1 | awk '{print $2}')
+      export BOOMPREV_HISTCMD=$(fc -ln -1 | head -n 1 | awk '{print $1}')
       export BOOMPREV_CMDNO=$BOOM_CMDNO
     ;;
     __exec_)
@@ -226,6 +226,11 @@ _boomsession() {
   if [ ! -r $_boomSession ]; then echo Error reading boom ${1#_boom} rankings; return; fi
   cat $_boomSession | sed -ne "\|$_BE_BOOM$_BE_EXPORT$_BE_BOOM Exporting .* $_BE_BOOM$_BE_EXPORT$_BE_BOOM|,\|$_BE_BOOM$_BE_CHECK$_BE_BOOM Export Complete $_BE_BOOM$_BE_CHECK$_BE_BOOM|p" | tail -n +2 | head -n -1 | sed -e 's/^'"$_BE_BOOM"' //' -e 's///g' | grep -v "$_BE_BOOM" > $_boomImportReady
   echo -n "" > $_boomSession
+
+  # Count empty imports for wrapped
+  if [[ -z "$(cat $_boomImportReady 2>/dev/null)" && -n "$BOOMSTATTRACKING" ]]; then
+    _boomStatInc $USER 12
+  fi
 }
 
 _checkForBoomImports() {
@@ -273,7 +278,10 @@ _checkForBoomImports() {
         echo $_BE_BOOM$_BE_IMPORT$_BE_BOOM Imported $ranks boom$([ $ranks -gt 1 ] && echo s) from $remotehost! $_BE_BOOM$_BE_IMPORT$_BE_BOOM
         echo Error: unable to write to site log
       fi
-      if [[ $ranks -gt 0 ]]; then filesboomed=$(($filesboomed+1)); fi
+      if [[ $ranks -gt 0 ]]; then
+        filesboomed=$(($filesboomed+1))
+        [[ -n "$BOOMSTATTRACKING" ]] && _boomStatInc $USER 8 $ranks
+      fi
       rm $filename
     done
     rm $_boomImportReady

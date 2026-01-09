@@ -5,6 +5,7 @@
 year=$(TZ=$BOOMTZ date +%Y)
 month=$(TZ=$BOOMTZ date +%m)
 day=$(TZ=$BOOMTZ date +%d)
+day=${day#0}
 
 ##########################
 ### 🦃 Thanksgiving 🦃 ###

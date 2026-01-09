@@ -90,7 +90,7 @@ Uninstallation is very straightforward. To uninstall all files created outside o
 
 
 ## Docs
-The below boomdocs output was generated as of patch 2.8.13:
+The below boomdocs output was generated as of patch 2.8.18:
 
 ```text
 Commands in the .boomrc suite:
@@ -258,14 +258,16 @@ Commands in the .boomrc suite:
 			loosely organized by priority - top TODO should be next up
 		total [PERSON | all]
 			view total booms for yourself, boomuser PERSON, or all boomusers
-		zone [summary | term]
-			launch the boom zone site (http://<host>:BOOMPORT) from cmd line by default
-			alternatively, use the optional args to see site displays in the cmd line:
+		zone [site | summary | term]
+			print this help message by default
+			run with these args to view the zone in different formats:
 	
+			site
+				launch the boom zone site (http://<host>:BOOMPORT) from cmd line - allows killing site with doom
 			summary
-				display the boom boards/stats as formatted on the default site layout
+				display the boom boards/stats in the terminal as formatted on the default site layout
 			term
-				show an automatically updating site-like view of all three columns!
+				show an automatically updating site-like view of all three columns in the terminal!
 				this "site view" has a unique summary and can be exited by pressing any key
 				columns will be cut off in this view if the data is too long for the column
 		help
@@ -317,9 +319,14 @@ Commands in the .boomrc suite:
 ```
 
 ## Patch Notes
-The below patchnotes output was generated as of patch 2.8.13:
+The below patchnotes output was generated as of patch 2.8.18:
 
 ```text
+# 2.8.18 - boom zone updated to not open zone by default
+# 2.8.17 - major change of heart - silently supporting bash pre-4.4 - old versions will just be more bug-prone with booming empty lines
+# 2.8.16 - boommeterrunner now uses fc instead of history to determine last command run - avoids issues with multi line cmds
+# 2.8.15 - add NYE to NY holiday emojis - happy 2026
+# 2.8.14 - `boom conf` updated with more BOOMCFGFILE optional vars for boss
 # 2.8.13 - BOOMNOWEEKENDFAV has more robust handling in boomstoday, boom favor, boomsession import, and chat /boomstoday
 # 2.8.12 - chat env tracks history and can use up/down arrows to navigate, some 3.0.0 features in beta
 # 2.8.11 - bar exit handling improved to prevent lingering bars

@@ -139,9 +139,10 @@ _boombarenv() {
     LASTBOOM)
       # Call with LASTBOOM <boomnum> <cmd>
       local tmpfile=/tmp/.boombar-lastboom
+      local cmd=${3//[\"\']/}
       echo "export BOOMBAR_LASTBOOMS=\"$(for i in $(seq $2); do echo -n $_BE_BOOM; done)\"" > $tmpfile
       echo "export BOOMBAR_LASTNUM=\"$2\"" >> $tmpfile
-      echo "export BOOMBAR_LASTCMD=\"$3\"" >> $tmpfile
+      echo "export BOOMBAR_LASTCMD=\"$cmd\"" >> $tmpfile
       source $tmpfile
     ;;
     BOOMINFO)

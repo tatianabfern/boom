@@ -218,6 +218,9 @@
 # 2.8.13 - BOOMNOWEEKENDFAV has more robust handling in boomstoday, boom favor, boomsession import, and chat /boomstoday
 # 2.8.14 - `boom conf` updated with more BOOMCFGFILE optional vars for boss
 # 2.8.15 - add NYE to NY holiday emojis - happy 2026
+# 2.8.16 - boommeterrunner now uses fc instead of history to determine last command run - avoids issues with multi line cmds
+# 2.8.17 - major change of heart - silently supporting bash pre-4.4 - old versions will just be more bug-prone with booming empty lines
+# 2.8.18 - boom zone updated to not open zone by default
 
 DOOMBOOM=
 if [ -z "$USER" ]; then
@@ -298,8 +301,20 @@ AUTOBOOMBOT=
 _SILENTBOOM=no
 BOOMPREV_HISTCMD=$HISTCMD # int currrent cmd num in history
 [[ -z "$_BOOMDEFAULTTIMEOUT" ]] && readonly _BOOMDEFAULTTIMEOUT=900 &>/dev/null
+
 readonly BOOM_MAGICPROMPT='\#' &>/dev/null
-BOOMPREV_CMDNO=$(printf '%s' "${BOOM_MAGICPROMPT@P}")
+_boomcmdno() {
+  # All builtins
+  # Deciding to quietly support pre-4.4 here despite increased bug likelihood - install still "requires" newer bash
+  local versionX_Y X Y
+  versionX_Y=${BASH_VERSION%.*}
+  X=${versionX_Y%.*}
+  Y=${versionX_Y#*.}
+  if ([ $X -eq 4 ] && [ $Y -ge 4 ]) || [ $X -gt 4 ]; then export $1=$(printf '%s' "${BOOM_MAGICPROMPT@P}")
+  else export $1=$(fc -l -1 | head -n 1 | awk '{print $1}') # this is a number
+  fi
+}
+_boomcmdno BOOMPREV_CMDNO
 
 _BE_BOOM_DEF="💥"
 _BE_HOLE_DEF="🕳️"
@@ -460,23 +475,34 @@ if [[ -n "$BOOMSTATTRACKING" && -z "$BOOMSITERUNNER" ]]; then
   __populateStatTracking() {
     local rankfile=/$BOOMUSERDIR/$1/$BOOMINSTALL/.boomrankings
     if [ ! -r "$rankfile" ]; then return; fi # Users need at least 1 boom to start stat tracking
-    echo -n " $1" >> $2 # user
-    echo -n " $(echo $(($(wc -w $rankfile | awk '{print $1}')-$(wc -l $rankfile | awk '{print $1}'))))" >> $2 # total
-    echo -n " 0" >> $2 # longest drought
-    echo -n " 0" >> $2 # fav count
-    echo -n " 0" >> $2 # hall entries
-    echo -n " 0" >> $2 # chat commands
-    echo -n " 0" >> $2 # super booms
-    echo -n " 0" >> $2 # unused
-    echo -n " 0" >> $2 # unused
-    echo -n " 0" >> $2 # unused
+    # Numbers at end of comments are idxes for awk
+    echo -n " $1" >> $2 # user 1
+    echo -n " $(echo $(($(wc -w $rankfile | awk '{print $1}')-$(wc -l $rankfile | awk '{print $1}'))))" >> $2 # total 2
+    echo -n " 0" >> $2 # longest drought 3
+    echo -n " 0" >> $2 # fav count 4
+    echo -n " 0" >> $2 # hall entries 5
+    echo -n " 0" >> $2 # chat commands 6
+    echo -n " 0" >> $2 # super booms 7
+    echo -n " 0" >> $2 # imported booms 8
+    echo -n " 0" >> $2 # number of droughts 9
+    echo -n " 0" >> $2 # boombot super booms 10
+    echo -n " 0" >> $2 # quests complete 11
+    echo -n " 0" >> $2 # empty imports 12
+    echo -n " 0" >> $2 # longest boom hog streak 13
+    echo -n " 0" >> $2 # unused 14
+    echo -n " 0" >> $2 # unused 15
+    echo -n " 0" >> $2 # unused 16
+    echo -n " 0" >> $2 # unused 17
+    echo -n " 0" >> $2 # unused 18
+    echo -n " 0" >> $2 # unused 19
+    echo -n " 0" >> $2 # unused 20
 
     local topcmds=$(sort -k2 -nr <(while read line; do
                                      echo -n "$(echo "$line" | awk '{print $2}') ";
                                      echo $(($(wc -w <(echo $line) | awk '{print $1}')-2));
                                    done < <(cat $rankfile | awk '{words = gsub(/ /, " ", $0); print words " " $0}' | sort -nr | head -n 10)) |
                     sed -e 's/ /;/' | xargs | sed 's/ /|/g')
-    echo " $topcmds" >> $2 # top commands at start of year
+    echo " $topcmds" >> $2 # top commands at start of year 21
   }
 
   # Create new statfile if new year
@@ -522,7 +548,27 @@ if [[ -n "$BOOMSTATTRACKING" && -z "$BOOMSITERUNNER" ]]; then
 
       awk -v u="$user" -v f="$field" -v d="$delta" '
         BEGIN { OFS=" " }
-        $1==u { $f += d }
+        $1 == u { $f += d }
+        { print }
+      ' "$file" | sed 's/^[^ ]/ &/' > "$tmp" && \mv -f "$tmp" "$file"
+    ) 9<>"$file"
+
+    \rm -f "$tmp" 2>/dev/null
+    \chmod 777 "$file"
+  }
+  _boomStatComp() {
+    local file="$_boomStatTracker" user="$1" field="$2" value="$3"
+    local tmp="$(mktemp --tmpdir="${file%/*}" ".${file##*/}.tmp.XXX")" || return 1
+
+    (
+      flock -x 9
+
+      awk -v u="$user" -v f="$field" -v v="$value" '
+        BEGIN { OFS=" " }
+        $1 == u {
+          cur = $f
+          if ((v + 0) > (cur + 0)) $f = v
+        }
         { print }
       ' "$file" | sed 's/^[^ ]/ &/' > "$tmp" && \mv -f "$tmp" "$file"
     ) 9<>"$file"
@@ -538,6 +584,7 @@ fi
 [ ! -w "$_boomBotModeBooms" ] && export DOOMBOOM=yes
 
 # Handle doom state - if something above failed, write to persistent doom if able
+[[ "$DOOMBOOM" == "yes" && "$(cat $_doomTracker 2>/dev/null)" != "yes" ]] && echo boomrc: ERROR: doom activated due to failure on source
 if [[ ! -f "$_doomTracker" ]]; then echo -n "$DOOMBOOM" > $_doomTracker
 elif [[ -n "$DOOMBOOM" && -w "$_doomTracker" ]]; then echo -n yes > $_doomTracker
 elif [[ -z "$DOOMBOOM" && -z "$BOOMSITERUNNER" ]]; then DOOMBOOM=$(cat $_doomTracker)
@@ -578,7 +625,7 @@ if [[ -z "$DOOMBOOM" && -z "$BOOMSITERUNNER" && -w "/$BOOMUSERDIR/$BOOMBOSS/$BOO
 fi
 
 _boommeter() {
-  BOOM_CMDNO=$(printf '%s' "${BOOM_MAGICPROMPT@P}")
+  _boomcmdno BOOM_CMDNO
   if [[ "$_SILENTBOOM" == "yes" ]]; then
     _boommeterrunner &>/dev/null
     BOOMPREV_HISTCMD=$HISTCMD
@@ -589,7 +636,15 @@ _boommeter() {
   fi
 
   # Doom if doomed elsewhere - persistent doom
-  if [[ -w "$_doomTracker" && "$(cat $_doomTracker)" != "$DOOMBOOM" ]]; then if [[ "$(cat $_doomTracker)" =~ "yes" ]]; then clear; else export AUTOBOOMBOT=; echo $_BE_BOOM$_BE_BOOM WE BRING THE BOOM $_BE_BOOM$_BE_BOOM; fi; DOOMBOOM=$(cat $_doomTracker); fi
+  if [[ -w "$_doomTracker" && "$(cat $_doomTracker)" != "$DOOMBOOM" ]]; then
+    if [[ "$(cat $_doomTracker)" =~ "yes" ]]; then
+      clear
+    else
+      export AUTOBOOMBOT=
+      echo $_BE_BOOM$_BE_BOOM WE BRING THE BOOM $_BE_BOOM$_BE_BOOM
+    fi
+    DOOMBOOM=$(cat $_doomTracker)
+  fi
 
   _handle_autoboombot
 
@@ -640,7 +695,7 @@ _boommeterrunner() {
   if [[ $BOOM_CMDNO -ne 0 && $BOOM_CMDNO -eq $BOOMPREV_CMDNO ]]; then return; fi
   if [[ "$DOOMBOOM" == "yes" ]]; then return; fi
 
-  local cmd=$(HISTTIMEFORMAT= history | tail -n 1 | awk '{print $2}')
+  local cmd=$(fc -ln -1 | head -n 1 | awk '{print $1}')
   local lasttimeout=$(sed -ne "/$USER/ s/$USER //p" $_boomTimeout | tail -n 1)
   export BOOMTIMEDOUT=$([ $(($(TZ=$BOOMTZ date -u +%s)-${lasttimeout:-0})) -le $_BOOMDEFAULTTIMEOUT ] && echo yes || echo no)
 
@@ -759,7 +814,10 @@ boommeter() {
 
   # Mult if quest complete
   local mult=$($logrun && _boomquest $1)
-  [ -n "$mult" ] && echo "Congratulations! You completed the boom quest!"
+  if [[ -n "$mult" ]]; then
+    echo "Congratulations! You completed the boom quest!"
+    [[ -n "$BOOMSTATTRACKING" ]] && _boomStatInc $USER 11
+  fi
 
   local boomtotal
   if [ -r "$_boomRankings" ]; then
@@ -777,6 +835,7 @@ boommeter() {
   if $logrun && [[ "$(cat $_boomDrought)" -gt "45" ]]; then
     mult=$((${mult:-1}*2))
     echo "Congratulations! Your drought was $(cat $_boomDrought) commands long!"
+    [[ -n "$BOOMSTATTRACKING" ]] && _boomStatInc $USER 9
   fi
 
   # Mult if boombot mode used
@@ -784,6 +843,7 @@ boommeter() {
     mult=$((${mult:-1}*2))
     echo "Congratulations! BoomBot has rewarded you with a SUPER boom!"
     echo -n "-1" > $_boomBotModeBooms
+    [[ -n "$BOOMSTATTRACKING" ]] && _boomStatInc $USER 10
   fi
 
   if [ $score -gt 5 ] ; then
@@ -912,6 +972,7 @@ _boomhog() {
     echo $_BE_BOOM$_BE_HOG$_BE_BOOM BOOM HOG! $1 is on a random boom streak of $streak in a row! $_BE_BOOM$_BE_HOG$_BE_BOOM
     echo $_BE_BOOM$_BE_HOG$_BE_BOOM BOOM HOG! $USER\'s $1 hit a random boom streak of $streak! $_BE_BOOM$_BE_HOG$_BE_BOOM >> $_boomUserLog
   fi
+  [[ -n "$BOOMSTATTRACKING" ]] && _boomStatComp $USER 13 $streak
 }
 _boomquest() {
   _rerollquest() {
@@ -1212,13 +1273,15 @@ alias boomhelp="_boomIntroTxt flag"
 # "\t${B}boom-total${N} [PERSON | ${B}all${N}]\n\t\tview total booms for yourself, boomuser PERSON, or all boomusers";
 ###
 ###SubFunction _boom-zone
+###ExcFunction _boom-zone-site
 ###ExcFunction _boom-zone-summary
 ###ExcFunction _boom-zone-term
-# "\t${B}boom-zone${N} [${B}summary${N} | ${B}term${N}]";
-# "\t\tlaunch the boom zone site ($BOOMSITE) from cmd line by default";
-# "\t\talternatively, use the optional args to see site displays in the cmd line:";
-# "\n\t\t${B}summary${N}\n\t\t\tdisplay the boom boards/stats as formatted on the default site layout";
-# "\t\t${B}term${N}\n\t\t\tshow an automatically updating site-like view of all three columns!";
+# "\t${B}boom-zone${N} [${B}site${N} | ${B}summary${N} | ${B}term${N}]";
+# "\t\tprint this help message by default";
+# "\t\trun with these args to view the zone in different formats:";
+# "\n\t\t${B}site${N}\n\t\t\tlaunch the boom zone site ($BOOMSITE) from cmd line - allows killing site with doom";
+# "\t\t${B}summary${N}\n\t\t\tdisplay the boom boards/stats in the terminal as formatted on the default site layout";
+# "\t\t${B}term${N}\n\t\t\tshow an automatically updating site-like view of all three columns in the terminal!";
 # "\t\t\tthis \"site view\" has a unique summary and can be exited by pressing any key";
 # "\t\t\tcolumns will be cut off in this view if the data is too long for the column";
 ###
@@ -1766,6 +1829,7 @@ boom() {
       _boss && echo BOOM_SKIPPERMCHECK=$BOOM_SKIPPERMCHECK
       _boss && echo
       _boss && echo \# Set this to enable stat tracking for yearly \`boom wrapped\` information!
+      _boss && echo \# This is set by default in the boom cfg generation on install
       _boss && echo BOOMSTATTRACKING=$BOOMSTATTRACKING
       _boss && echo
       echo Optional user-defined variables to set before source:
@@ -2094,8 +2158,11 @@ boom() {
             fi
           done
         ;;
-        *)
+        site_)
           command $BOOMSITECMD $BOOMSITE &>/dev/null & disown
+        ;;
+        *)
+          boomdocs boom-zone
         ;;
       esac
     ;;
@@ -3185,6 +3252,7 @@ fi
 #TODO: Enforce configured emojis to be emojis?
 
 # Long term todos
+#TODO: Hide site as if pressing `b` with doom for logged in users, maybe as an alternative to doomsite/doomzone
 #TODO: move boom command big features to separate callable rcs (chat, for instance)
 #TODO: more boombot remarks
 #TODO: boombar - add boombar options
@@ -3192,6 +3260,7 @@ fi
 #TODO: use more shell builtins for optimization - $EPOCHSECONDS instead of some dates, $BASH_REMATCH instead of some seds
 #TODO: maybe reward if X+ booms are imported at once to make up for missing super boom milestones (25 multiples)
 #TODO: de-duplicate chat completion by calling _boom with current args similiar to magic alias function - maybe just change args checked by if called with chat or boom
+#TODO: Only persist doom if doom command is run? Currently, we persist when an error happens but notify user if automatically doomed
 
 #CANCELLEDTODO: happy/sad boombot based on boombot mode activity: lots of work for what
 #CANCELLEDTODO: more boom mult situations?: need to not overdo mult... goal is avgs under 5 mostly, don't want to cheapen super booms

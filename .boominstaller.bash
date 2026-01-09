@@ -144,6 +144,9 @@ if [[ "$1" == "skippermcheck" ]]; then
   echo -e "\nBOOM_SKIPPERMCHECK=skippermcheck" >> $BOOMCFGFILE
 fi
 
+echo Defaulting BOOMSTATTRACKING to on in config file
+echo -e "\nBOOMSTATTRACKING=y" >> $BOOMCFGFILE
+
 echo
 echo To get started, source ~/.boomrc!
 
