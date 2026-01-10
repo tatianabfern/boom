@@ -1,0 +1,164 @@
+#!/usr/bin/env bash
+
+_boomgoal_blackbox() {
+  # _boomgoal_blackbox PREV_K PREV_EMA LAST_GOAL LAST_ACHIEVED
+
+  # Calculate next goal using statistics
+  # We aim for a target pass/fail rate and tune the expected booms accordingly
+  # Each install should theoretically tune itself based on goal history without saving every past goal
+
+  # bc-running helpers
+  _bc() { bc -l <<<"scale=10; $*"; } # run bc with large scale
+  _bc_int() { bc -l <<<"scale=0; ($1 + 0.5)/1"; } # round to nearest int
+  _bc_ge() { [[ "$(_bc "$1 >= $2")" == "1" ]]; } # float ge
+  _bc_le() { [[ "$(_bc "$1 <= $2")" == "1" ]]; } # float le
+  _clampf() { _bc "if ($1 < $2) $2 else if ($1 > $3) $3 else $1"; } # clamp to min/max
+
+  ### Populate calling variables ###
+  local prev_k prev_ema last_goal last_ach
+
+  prev_k="$1"
+  prev_ema="$2"
+  last_goal="$3"
+  last_ach="$4"
+
+  ### Calculate date range for new goal ###
+  local start end days dow offset anchor
+  local ymd midnight
+
+  start=${EPOCHSECONDS:-$(TZ=$BOOMTZ date +%s)}
+
+  # Current day of week
+  dow="$(TZ=$BOOMTZ date -d "@$start" +%u 2>/dev/null)" || return 1
+  offset=$(( dow - 1 ))
+
+  # Midnight of current day
+  ymd="$(TZ=$BOOMTZ date -d "@$start" +%F 2>/dev/null)" || return 1
+  midnight="$(TZ=$BOOMTZ date -d "$ymd 00:00:00" +%s 2>/dev/null)" || return 1
+
+  # Monday 00:00 of current week, 2 week cycle
+  anchor=$(( midnight - offset*86400 ))
+  end=$(( anchor + 14*86400 )) # 2 weeks
+
+  # Ensure at least 7 days - this check should be redundant
+  if (( end - start < 7*86400 )); then
+    end=$(( end + 7*86400 ))
+  fi
+
+  # Ceil days remaining
+  days=$(( (end - start + 86399) / 86400 ))
+
+  ### Calculate min/expected/max goal based on time
+  local minGoal expGoal maxGoal users BPB BPC
+  local minCmds expCmds maxCmds
+
+  users=$(wc -l $_boomUsers | awk '{print $1}')
+  (( users < 1 )) && users=1
+
+  # "booms" per random boom of command
+  BPB=3.75 # (1 + 2 + 3 + 4 + 5 + 5 + 5 + 5) / 8
+  # "booms" earned per cmd boomed on avg, factoring in a favorite
+  BPC=$(_bc "($BPB*($users-1) + $BPB*1.5) / $users")
+
+  # Expected cmd booms per user per window
+  minCmds=$(_bc "3*$days") # min hits goal can be
+  expCmds=$(_bc "7*$days") # expected hits for goal
+  maxCmds=$(_bc "15*$days") # max hits for goal
+
+  # Expected booms earned per window overall
+  minGoal=$(_bc_int "$minCmds*$BPC*$users")
+  expGoal=$(_bc     "$expCmds*$BPC*$users")
+  maxGoal=$(_bc_int "$maxCmds*$BPC*$users")
+
+  ### Tuning defaults for pass rate target of 80% ###
+  local ALPHA TARGET BAND UP_S UP_B DN_S DN_B K_MIN K_MAX
+
+  # EMA smoothing - EMA is of pass rate
+  ALPHA=".3"
+
+  # Target pass rate and dead band
+  TARGET=".8"
+  BAND=".03" # +/-3% around target
+
+  # k step sizes
+  UP_S=".02"
+  UP_B=".04"
+  DN_S=".03"
+  DN_B=".06"
+
+  # k bounds (goal is clamped to min/max, but this prevents runaway k)
+  K_MIN=".4" # 3 / 7 (ish)
+  K_MAX="2.3" # 15 / 7 (ish)
+
+  ### Update EMA from last window ###
+  local goal_passed new_ema new_k
+
+  goal_passed="0"
+  new_ema="$prev_ema"
+  new_k="$prev_k"
+
+  # Place importance on recent data
+  if (( last_goal > 0 )); then
+    if (( last_ach >= last_goal )); then goal_passed="1"; fi
+    new_ema="$(_bc "(1-$ALPHA)*$prev_ema + $ALPHA*$goal_passed")"
+    new_ema="$(_clampf "$new_ema" "0" "1")"
+  fi
+
+  ### Adjust k to target pass rate ###
+  local upper lower
+  upper="$(_bc "$TARGET + $BAND")"
+  lower="$(_bc "$TARGET - $BAND")"
+
+  # Pass too often (EMA above TARGET+BAND), increase difficulty (k).
+  if _bc_ge "$new_ema" "$upper"; then
+    new_k="$(_bc "$prev_k + $UP_S")"
+  # Fail too often (EMA below TARGET-BAND), decrease difficulty (k).
+  elif _bc_le "$new_ema" "$lower"; then
+    new_k="$(_bc "$prev_k - $DN_S")"
+  # Meeting target (in dead band)
+  else
+    new_k="$prev_k"
+  fi
+
+  # Adjust more aggressively for a bigger pass/fail
+  if (( last_goal > 0 )); then
+    local ratio="$(_bc "$last_ach / $last_goal")"
+    if _bc_ge "$ratio" "1.25"; then
+      new_k="$(_bc "$new_k + $UP_B")"
+    elif _bc_le "$ratio" "0.75"; then
+      new_k="$(_bc "$new_k - $DN_B")"
+    fi
+  fi
+
+  new_k="$(_clampf "$new_k" "$K_MIN" "$K_MAX")"
+
+  ### Calc next goal from band and k ###
+  local raw clamped goal_int
+
+  raw="$(_bc "$expGoal * $new_k")"
+  clamped="$(_clampf "$raw" "$minGoal" "$maxGoal")"
+  goal_int="$(_bc_int "$clamped")"
+
+  # Nice rounding step by magnitude (ints)
+  local step
+  if   (( goal_int < 100 ));  then step=5
+  elif (( goal_int < 500 ));  then step=10
+  elif (( goal_int < 2000 )); then step=25
+  else                             step=50
+  fi
+  # /2 to round up when we should
+  goal_int=$(( (goal_int + step/2) / step * step ))
+
+  # Ensure int goal stays within min/max
+  (( goal_int < minGoal )) && goal_int="$minGoal"
+  (( goal_int > maxGoal )) && goal_int="$maxGoal"
+
+  # Goal learning doesn't care about users/days changes
+  printf "%s %.2f %.2f %s\n" \
+    "$goal_int" "$new_k" "$new_ema" "$end"
+}
+
+_boomgoal() {
+  _boomgoal_blackbox 1.00 .8 0 0
+}
+

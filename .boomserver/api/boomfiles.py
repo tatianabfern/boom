@@ -2,16 +2,10 @@ import hashlib
 import re
 import time
 
-from threading import Lock
-
 POLL_REGEX = re.compile(r'\[POLL (\d+)\]')
 EXPIRY_REGEX = re.compile(r'-e (\d+)\b')
 
 MAX_VISIBLE = 74
-
-file_lock = Lock()
-
-file_state = {}
 
 def hash_line(line: str):
     return hashlib.sha1(line.encode('utf-8')).hexdigest()
@@ -82,29 +76,35 @@ def build_window(lines, default_type = "log", lingering = False):
 
     return list(reversed(logs[max(0, len(lingering_logs)-1):])) + list(reversed(lingering_logs))
 
-def diff(prev, curr):
-    prev_map = {x["id"]: x for x in prev}
+def diff(prev_hashes, curr):
     curr_map = {x["id"]: x for x in curr}
 
     actions = []
 
-    for k in prev_map:
-        if k not in curr_map:
-            actions.append({"op": "drop", "id": k})
+    # Drop anything the client has that is no longer in the current window
+    for prev_id in prev_hashes:
+        if prev_id not in curr_map:
+            actions.append({"op": "drop", "id": prev_id})
 
-    for k, v in curr_map.items():
-        if k not in prev_map:
+    # Iterate in current order so appends/updates are in order
+    for item in curr:
+        curr_id = item["id"]
+        prev_hash = prev_hashes.get(curr_id)
+
+        # Append anything missing from client's view
+        if prev_hash is None:
             actions.append({
                 "op": "append",
-                "id": k,
-                "type": v["type"],
-                "payload": v["payload"]
+                "id": curr_id,
+                "type": item["type"],
+                "payload": item["payload"],
             })
-        elif v["hash"] != prev_map[k]["hash"]:
+        # Update lines with a changed hash
+        elif prev_hash != item["hash"]:
             actions.append({
                 "op": "update",
-                "id": k,
-                "payload": v["payload"]
+                "id": curr_id,
+                "payload": item["payload"],
             })
 
     return actions

@@ -60,6 +60,7 @@ Here is a breakdown of all .boom\*rc files and a brief description of what they 
 |.boomdevrc|This rc is not in the BOOMRCS directory by default but can be enabled with `ln -s ../.boomdevrc .` in the BOOMRCS directory. It enables the `boomdev` command, which has utilities for those wanting to develop the boom.|Not Sourced|
 |.boomdocsrc|This is a pretty essential rc that enables the commented documentation above each function/alias in the .boomrc to be parsed and printed to the terminal like a --help text.|Sourced|
 |.boomenvrc|This is a simple rc that enables boom commands to be run without `boom` in front of them. It is enabled with `boom env` after sourcing `.boomrc`|Not Sourced|
+|.boomgoalrc|This rc includes necessary code for the `boom goal` command to function.|Sourced|
 |.boomholidayrc|This rc is an optional rc that adds festive themes throughout the year!|Sourced|
 |.boompollrc|This rc includes necessary code for the `boom poll` command to function.|Sourced|
 |.boomsimplerc|This is the rc that enables boom sessions through `boomexec` and `boomssh`. It is essential if you plan to take the boom with you when you travel to other machines/containers.|Sourced|

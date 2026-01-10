@@ -123,7 +123,7 @@ _boompoll() {
 
     # Check if a given poll is expired
     local untilClose day hour minute
-    untilClose="$((expiry-EPOCHSECONDS))"
+    untilClose="$((expiry-${EPOCHSECONDS:-$(TZ=$BOOMTZ date +%s)}))"
     minute=$((untilClose/60))
     hour=$((minute/60))
     day=$((hour/24))
@@ -338,7 +338,7 @@ _boompoll() {
         echo Poll set to expire ${exprstr:-"24h"} after creation
         echo
 
-        pollstr="[POLL $EPOCHSECONDS] -t $title - ${flagstr}${optionstr}-e $exprsec - -v  - "
+        pollstr="[POLL ${EPOCHSECONDS:-$(TZ=$BOOMTZ date +%s)}] -t $title - ${flagstr}${optionstr}-e $exprsec - -v  - "
       }
 
       local voteonexit=

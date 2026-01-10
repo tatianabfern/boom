@@ -118,7 +118,7 @@ _boombarenv() {
     DROUGHTSTAT)
       # Call with DROUGHTSTAT
       export BOOMBAR_DROUGHTCMDS="$(cat $_boomDrought)"
-      export BOOMBAR_DROUGHTMINS="$(((EPOCHSECONDS-$(stat -c %Y $_boomRankings))/60))"
+      export BOOMBAR_DROUGHTMINS="$(((${EPOCHSECONDS:-$(TZ=$BOOMTZ date +%s)}-$(stat -c %Y $_boomRankings))/60))"
       export BOOMBAR_DROUGHTRATIO_CPM="$(echo "scale=2; $BOOMBAR_DROUGHTCMDS/$BOOMBAR_DROUGHTMINS" | bc 2>/dev/null)"
       export BOOMBAR_DROUGHTRATIO_CPM="${BOOMBAR_DROUGHTRATIO_CPM:-nebulous}"
     ;;

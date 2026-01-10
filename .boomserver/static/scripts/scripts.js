@@ -45,6 +45,7 @@ function closeLoadingBar() {
 const logView = {
     firstLoad: true,
     order: [],
+    hashes: {},
     items: new Map(),
     container: null
 };
@@ -52,6 +53,7 @@ const logView = {
 const chatView = {
     firstLoad: true,
     order: [],
+    hashes: {},
     items: new Map(),
     container: null
 };
@@ -813,7 +815,7 @@ function applyActions(view, actions) {
 let boomFavUsername = null;
 
 async function fetchLogFileContent() {
-    const data = await boomFetch('/read_log_file', { full: logView.firstLoad });
+    const data = await boomFetch('/read_log_file', { full: logView.firstLoad, hashes: logView.hashes });
     if (!boomFavUsername) await fetchBoomFavorite();
 
     if (logView.firstLoad) {
@@ -830,6 +832,10 @@ async function fetchLogFileContent() {
     logView.order = data.order || [];
     logView.order = logView.order.length > 0 ? logView.order : ["log-empty"];
 
+    if (data.actions.length > 0) {
+        logView.hashes = data.hashes || {};
+    }
+
     // Render each line in order
     renderFileFully(logView)
 
@@ -838,7 +844,7 @@ async function fetchLogFileContent() {
 }
 
 async function fetchBoommeterFileContent() {
-    const data = await boomFetch('/read_boommeter_file', { full: chatView.firstLoad });
+    const data = await boomFetch('/read_boommeter_file', { full: chatView.firstLoad, hashes: chatView.hashes });
     if (!boomFavUsername) await fetchBoomFavorite();
 
     if (chatView.firstLoad) {
@@ -854,6 +860,10 @@ async function fetchBoommeterFileContent() {
     // Set order from server
     chatView.order = data.order || [];
     chatView.order = chatView.order.length > 0 ? chatView.order : ["log-empty"];
+
+    if (data.actions.length > 0) {
+        chatView.hashes = data.hashes || {};
+    }
 
     // Render each line in order
     renderFileFully(chatView)

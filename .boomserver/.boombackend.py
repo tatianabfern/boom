@@ -162,26 +162,24 @@ def read_file(filename, default_type = "log", lingering = False):
     valid_key, username = ba.validate_key(api_key)
     if not valid_key: return jsonify(error="Invalid API Key"), 401
 
+    client_hashes = data.get("hashes", {}) or {}
+
+    if full:
+        client_hashes = {}
+
     with open(filename, 'r') as file:
         lines = file.readlines()
 
     window = bf.build_window(lines, default_type, lingering)
 
-    with bf.file_lock:
-        if api_key not in bf.file_state:
-            bf.file_state[api_key] = {}
+    actions = bf.diff(client_hashes, window)
 
-        state = bf.file_state[api_key].setdefault(filename, {
-            "visible": []
-        })
-
-        if full:
-            state["visible"] = []
-
-        actions = bf.diff(state["visible"], window)
-        state["visible"] = window
-
-    return jsonify(full=full, actions=list(actions), order=[item["id"] for item in window])
+    return jsonify(
+        full=full,
+        actions=list(actions),
+        order=[item["id"] for item in window],
+        hashes={item["id"]: item["hash"] for item in window} if len(actions) > 0 else {}
+    )
 
 @app.route('/read_log_file', methods=['POST'])
 def read_log_file():
