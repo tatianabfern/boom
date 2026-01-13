@@ -41,7 +41,7 @@ signal.signal(signal.SIGTERM, handle_exit)
 
 @app.route('/')
 def index():
-    return render_template('.boom.html')
+    return render_template('boom.html')
 
 @app.route('/popup')
 def popup():
@@ -58,6 +58,10 @@ def run_simple_command(cmd):
         api_key = request.get_json().get('key')
         valid_key, username = ba.validate_key(api_key)
         if not valid_key: return jsonify(error="Invalid API Key"), 401
+
+        # Add api key to active keys if it isn't yet
+        if api_key not in bc.active_api_keys:
+            bc.active_api_keys.add(api_key)
 
         if cmd not in bc.cmd_list:
             return jsonify(error=[f"\"{cmd}\" not in expected command list"]), 400
@@ -235,17 +239,24 @@ def boompass():
 
     users = bj.load_users()
 
-    if usern not in users and passwd == DEFPASSWD:
+    if usern == None and passwd == DEFPASSWD:
         return jsonify(valid=True, key=ba.DEFKEY)
     elif usern in users:
         user = users[usern]
         if not ba.verify_password(passwd, user["password_hash"]):
             return jsonify(valid=False), 401
 
-        key, expr = ba.generate_api_key()
-        user["api_key"] = key
-        user["api_key_expr"] = expr
-        bj.save_users(users)
+        # Only regenerate key if inactive
+        active, _ = ba.validate_key(user["api_key"])
+        if not active:
+            key, expr = ba.generate_api_key()
+            user["api_key"] = key
+            user["api_key_expires"] = expr
+            bj.save_users(users)
+        else:
+            key = user["api_key"]
+            expr = user["api_key_expires"]
+            bc.active_api_keys.add(key)
 
         return jsonify(valid=True, key=key, expires=expr, user=usern)
     else:

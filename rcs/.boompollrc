@@ -163,7 +163,7 @@ _boompoll() {
       if [[ ! -f "$histfile" ]]; then
         echo -n '' > $histfile
       else
-        __poll_env_hist_idx=$(wc -l $histfile | awk '{print $1}')
+        __poll_env_hist_idx=$(wc -l <$histfile)
       fi
 
       echo -n "$__poll_env_hist_idx" > /tmp/.pollenvcurridx-$USER
@@ -350,9 +350,9 @@ _boompoll() {
         fi
 
         if [[ -n "$userInput" ]]; then
-          __poll_env_hist_idx=$(wc -l $histfile | awk '{print $1}')
+          __poll_env_hist_idx=$(wc -l <$histfile)
           echo "${__poll_env_hist_idx:-0} $userInput" >> $histfile
-          __poll_env_hist_idx=$(wc -l $histfile | awk '{print $1}')
+          __poll_env_hist_idx=$(wc -l <$histfile)
         fi
         echo -n "$__poll_env_hist_idx" > /tmp/.pollenvcurridx-$USER
 
@@ -367,7 +367,7 @@ _boompoll() {
           echo "     t TITLE: set title"
           echo "     a OPT:   add option"
           echo "     d OPT:   delete option"
-          echo "     e EXP:   set poll expiration time in format [0[1-3]d]XXh[XXm] (default 24h)"
+          echo "     e EXP:   set poll expiration time in format [0(1-3)d]XXh[XXm] (default 24h)"
           echo
           echo "     h:       view poll env boomdocs entry"
           echo "     m:       toggle voting for multiple options (default on)"
@@ -433,7 +433,7 @@ _boompoll() {
               fi
 
               if [[ -z "$exprstr" ]]; then
-                echo "   Invalid expiration string. Expects format [0[1-3]d]XXh[XXm]."
+                echo "   Invalid expiration string. Expects format [0(1-3)d]XXh[XXm]."
               else
                 echo "   Set expiration string to $exprstr"
               fi

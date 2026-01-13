@@ -1,18 +1,36 @@
 let apiKey = null;
+let activeUser = null;
 let channel;
 
-function backendPasswdCheck(passwd) {
+function logout() {
+    apiKey = null;
+    activeUser = null;
+    eraseCookie('boomToken');
+    document.getElementById('logoutBtn').style.display = 'none';
+    document.getElementById('helpWrap').style.display = 'none';
+    window.location.reload();
+}
+
+function backendPasswdCheck(passwd, username=null) {
     return fetch('/boompass', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
         },
         body: JSON.stringify({
+            username: username,
             password: passwd
         })
     }).then(response => response.json()).then(data => {
         if (data.valid) {
             apiKey = data.key;
+            activeUser = data.user || null;
+
+            if (username !== null && activeUser === null) {
+                apiKey = null;
+                return false;
+            }
+
             return true;
         } else {
             return false;
@@ -26,12 +44,15 @@ function backendPasswdCheck(passwd) {
 }
 
 async function checkPassword() {
-    if (await backendPasswdCheck(CryptoJS.SHA256(document.getElementById('passwordInput').value).toString())) {
+    let username = document.getElementById('usernameInput').value.toString();
+    if (username === "") username=null;
+
+    if (await backendPasswdCheck(CryptoJS.SHA256(document.getElementById('passwordInput').value).toString(), username)) {
         setCookie('boomToken', apiKey, 30);
 
         loadContent();
     } else {
-        alert('Incorrect password. Please try again.');
+        alert('Invalid login. Please try again.');
     }
 }
 
@@ -60,6 +81,9 @@ const chatView = {
 
 async function loadContent() {
     document.getElementById('passwordContainer').style.display = 'none';
+    document.getElementById('logoutBtn').style.display = 'flex';
+    document.getElementById('helpWrap').style.display = 'block';
+
     isLoading = true;
     loadProgressBar();
 
@@ -111,10 +135,10 @@ function loadProgressBar() {
         if (boomHallContent === "")             progressCount++;
         if (!logsLoaded)                        progressCount++;
         if (!chatLoaded)                        progressCount++;
-        
+
         barString = "";
-        
-        for (i =0; i < 12; i++) {
+
+        for (i = 0; i < 12; i++) {
             barString += i < progressCount ? "💣" : "💥";
         }
 
@@ -148,9 +172,9 @@ async function boomFetch(endpoint, body = {}) {
             },
             body: JSON.stringify(body)
         });
-    
+
         data = await response.json();
-    
+
         if (response.status != 200 || (data.error && data.error.length > 0)) {
             let err;
             if (response.status != 200) {
@@ -165,7 +189,7 @@ async function boomFetch(endpoint, body = {}) {
             if (response.status === 401) {
                 eraseCookie('boomToken');
                 showAlert("Token Error","Please reload the boom zone");
-                window.location.reload()
+                window.location.reload();
             }
             else if (response.status === 504 || response.status === 503) {
                 console.error("Timeout Error","The server took too long to respond. Retrying...");
@@ -226,7 +250,7 @@ async function fetchBoomLatest() {
     let retVal = data.output;
 
     boomLatestContent = retVal;
-    
+
     return retVal;
 }
 
@@ -260,7 +284,7 @@ async function fetchBoomDrought() {
     let retVal = data.output;
 
     boomDroughtContent = retVal;
-    
+
     return retVal;
 }
 
@@ -271,7 +295,7 @@ async function fetchBoomBoardAvg() {
     let retVal = replaceBoomNumbers(data.output);
 
     boomBoardAvgContent = retVal;
-    
+
     return retVal;
 }
 
@@ -293,7 +317,7 @@ async function fetchBoomBoardFreq() {
     let retVal = replaceBoomNumbers(data.output);
 
     boomBoardFreqContent = retVal;
-    
+
     return retVal;
 }
 
@@ -315,7 +339,7 @@ async function fetchBoomBoardTop() {
     let retVal = data.output;
 
     boomBoardTopContent = retVal;
-    
+
     return retVal;
 }
 
@@ -337,7 +361,7 @@ async function fetchBoomBoardDrought() {
     let retVal = replaceBoomNumbers(data.output);
 
     boomBoardDroughtContent = retVal;
-    
+
     return retVal;
 }
 
@@ -348,7 +372,7 @@ async function fetchBoomPatch() {
     let retVal = data.output;
 
     boomPatchnoteContent = retVal;
-    
+
     return retVal;
 }
 
@@ -390,7 +414,7 @@ function updateContents() {
     if ([ "all", "info" ].includes(windowState.contentRender)) {
         let username = boomLatestContent.split(" ")[1];
         let className = "";
-        
+
         if (username) {
             if (username.toLowerCase().includes('bot')) {
                 className = 'username-bot';
@@ -411,7 +435,7 @@ function updateContents() {
     if ([ "all", "info" ].includes(windowState.contentRender)) {
         let username = boomDroughtContent.split(" ")[1];
         let className = "";
-        
+
         if (username) {
             if (username.toLowerCase().includes('bot')) {
                 className = 'username-bot';
@@ -430,12 +454,12 @@ function updateContents() {
             let splitContent = boomBoardAvgContent.split("<br>")
 
             outputText += `<div class="table-head"><h2 style="text-align: center;">Boom Average</h2><br>${splitContent[1]}<br>${splitContent[2]}</div>`;
-            
+
             let bodyContent = "";
             for (let i = 3; i < splitContent.length; i++) {
                 bodyContent += `${splitContent[i]}<br>`;
             }
-            
+
             outputText += `<div class="table-body">${bodyContent}</div>`
         }
         else {
@@ -448,7 +472,7 @@ function updateContents() {
             let splitContent = boomBoardFreqContent.split("<br>")
 
             outputText += `<div class="table-head"><h2 style="text-align: center;">Boom Frequency</h2><br>${splitContent[1]}<br>${splitContent[2]}</div>`;
-            
+
             let bodyContent = "";
             for (let i = 3; i < splitContent.length; i++) {
                 if (i === splitContent.length - 3) {
@@ -458,7 +482,7 @@ function updateContents() {
                     bodyContent += `${splitContent[i]}<br>`;
                 }
             }
-            
+
             outputText += `<div class="table-body">${bodyContent}</div>`
         }
         else {
@@ -592,7 +616,7 @@ function formatPoll(poll) {
     if (days) timeStr += `${days} day${days !== 1 ? 's' : ''} `;
     if (hours) timeStr += `${hours} hour${hours !== 1 ? 's' : ''} `;
     if (minutes) timeStr += `${minutes} minute${minutes !== 1 ? 's' : ''} `;
-    
+
     // Show seconds only if all larger units are zero
     if (!days && !hours && !minutes) {
         timeStr += `${seconds} second${seconds !== 1 ? 's' : ''}`;
@@ -884,6 +908,11 @@ window.onload = function() {
 
         document.getElementById('passwordInput').focus();
         document.getElementById('passwordInput').addEventListener('keydown', function(event) {
+            if (event.key === 'Enter') {
+                checkPassword();
+            }
+        });
+        document.getElementById('usernameInput').addEventListener('keydown', function(event) {
             if (event.key === 'Enter') {
                 checkPassword();
             }

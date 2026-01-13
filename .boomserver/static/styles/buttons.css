@@ -1,0 +1,167 @@
+:root {
+  --chrome-bg: var(--primary-color);
+  --chrome-hover-bg: var(--secondary-color);
+  --chrome-border: color-mix(in srgb, var(--text-color) 18%, transparent);
+  --chrome-text: var(--text-color);
+  --chrome-shadow: 0 10px 30px rgba(0,0,0,0.15);
+
+  --chrome-dropdown-bg: var(--primary-color);
+  --chrome-sep: color-mix(in srgb, var(--text-color) 10%, transparent);
+  --chrome-key-bg: var(--secondary-color);
+  --chrome-key-border: color-mix(in srgb, var(--text-color) 15%, transparent);
+
+  --chrome-radius: 12px;
+}
+
+@supports not (color-mix(in srgb, #fff 50%, transparent)) {
+  :root {
+    --chrome-border: rgba(255,255,255,0.15);
+    --chrome-sep: rgba(255,255,255,0.08);
+    --chrome-key-border: rgba(255,255,255,0.12);
+  }
+}
+
+.logout-btn,
+.help-btn {
+  z-index: 9999;
+
+  width: 42px;
+  height: 42px;
+
+  border: 1px solid var(--chrome-border);
+  background: var(--chrome-bg);
+  color: var(--chrome-text);
+
+  border-radius: 10px;
+  box-sizing: border-box;
+  box-shadow: var(--chrome-shadow);
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  cursor: pointer;
+}
+
+.help-btn {
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 20px;
+  line-height: 1;
+}
+
+.logout-btn:hover,
+.help-btn:hover {
+  background: var(--chrome-hover-bg);
+}
+
+.logout-btn:active,
+.help-btn:active {
+  transform: translateY(1px);
+}
+
+.logout-btn {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+}
+
+.help-wrap {
+  position: fixed;
+  top: 12px;
+  right: 66px;
+  z-index: 9999;
+}
+
+.logout-icon {
+  fill: currentColor;
+}
+
+.help-dropdown {
+  position: absolute;
+  top: 48px;
+  right: 0;
+
+  width: 360px;
+  max-width: calc(100vw - 24px);
+
+  padding: 12px;
+  border-radius: var(--chrome-radius);
+
+  border: 1px solid var(--chrome-border);
+  background: var(--chrome-dropdown-bg);
+  color: var(--chrome-text);
+
+  box-shadow: var(--chrome-shadow);
+
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-4px);
+  transition: opacity 120ms ease, transform 120ms ease, visibility 120ms ease;
+
+  pointer-events: none;
+
+  overflow: hidden;
+}
+
+.help-dropdown::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+
+  background: rgba(0, 0, 0, 0.02);
+  backdrop-filter: blur(12px);
+}
+
+/* Mix in color to prevent see-thru box */
+@supports (background: color-mix(in srgb, black 50%, white)) {
+  .help-dropdown::before {
+    background: color-mix(in srgb, var(--background-color) 02%, rgba(0,0,0,0.02));
+  }
+}
+
+.help-dropdown > * {
+  position: relative;
+  z-index: 1;
+}
+
+.help-title {
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.help-item {
+  display: grid;
+  grid-template-columns: 70px 1fr;
+  gap: 10px;
+  padding: 6px 0;
+  border-top: 1px solid var(--chrome-sep);
+}
+
+.help-item:first-of-type {
+  border-top: none;
+}
+
+.help-key {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--chrome-key-border);
+  background: var(--chrome-key-bg);
+  width: fit-content;
+}
+
+.help-desc {
+  opacity: 0.95;
+}
+
+.help-wrap:hover .help-dropdown,
+.help-wrap:focus-within .help-dropdown {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0px);
+  pointer-events: auto;
+}
+

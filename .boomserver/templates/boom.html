@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!--Thanks Nathan for the entire frontend-->
+<!--Thanks Nathan for styling and scripting help-->
 <html lang="en">
     <head>
         <meta charset="UTF-8">
@@ -7,6 +7,7 @@
         <title>BOOM zone</title>
         <link rel="stylesheet" href="static/styles/styles.css"/>
         <link id="theme-style" rel="stylesheet" href="static/styles/themes/palenight.css">
+        <link rel="stylesheet" href="static/styles/buttons.css"/>
         <script src="static/lib/crypto.js"></script>
         <script src="static/scripts/channel.js"></script>
         <script src="static/scripts/theme.js"></script>
@@ -18,12 +19,36 @@
     </head>
     <body>
         <div class="all" id="all">
+            <div id="helpWrap" class="help-wrap" style="display:none;">
+                <button class="help-btn" aria-label="Help" title="Help">
+                  ?
+                </button>
+
+                <div class="help-dropdown" role="tooltip">
+                    <div class="help-title">Keyboard shortcuts</div>
+                    <div class="help-item"><span class="help-key">Space</span><span class="help-desc">Cycle board view</span></div>
+                    <div class="help-item"><span class="help-key">Esc</span><span class="help-desc">Close alerts</span></div>
+                    <div class="help-item"><span class="help-key">l</span><span class="help-desc">Seasonal effects</span></div>
+                    <div class="help-item"><span class="help-key">c</span><span class="help-desc">Open theme selection window</span></div>
+                    <div class="help-item"><span class="help-key">b</span><span class="help-desc">Toggle full zone visibility</span></div>
+                    <div class="help-item"><span class="help-key">p</span><span class="help-desc">Toggle polls open/closed</span></div>
+                </div>
+            </div>
+            <button id="logoutBtn" class="logout-btn" onclick="logout()" aria-label="Logout" title="Logout" style="display:none;">
+              <svg class="logout-icon" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false">
+                <!-- door -->
+                <path d="M4 3h9a2 2 0 0 1 2 2v3h-2V5H4v14h9v-3h2v3a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/>
+                <!-- arrow -->
+                <path d="M13 12l4-4v3h5v2h-5v3l-4-4z"/>
+              </svg>
+            </button>
             <div style='text-align: center;'>
                 <h1 id="boom-header">💥💥💥💥💥 Welcome to the <span class="hover-red"> BOOM </span> zone! 💥💥💥💥💥</h1>
             </div>
             <div class="container" id="passwordContainer">
                 <div class="password-prompt" id="passwordPrompt">
                     <h1>Enter Password to Access the BOOM Zone</h1>
+                    <input type="text" id="usernameInput" placeholder="Enter username">
                     <input type="password" id="passwordInput" placeholder="Enter password">
                     <button onclick="checkPassword()">Submit</button>
                 </div>
@@ -31,7 +56,7 @@
             <div class="container" id="loadingContainer">
                 <div class="loading" id="loading">
                     <div class="loading-bar">
-                        <h1>loading...</h1>
+                        <h1>Loading...</h1>
                         <div id="loading-bar"></div>
                     </div>
                 </div>
@@ -66,6 +91,8 @@
 <!-- DONE: favorite user highlight -->
 <!-- DONE: seasonal leaf/snow effect -->
 <!-- DONE: error handling -->
+<!-- DONE: username login -->
+<!-- DONE: logout button -->
 <!-- TODO: fix table header -->
 <!-- TODO: restyle password prompt -->
 <!-- TODO: save local user preferences -->
@@ -73,7 +100,5 @@
 <!-- TODO: auto cycle boom board -->
 <!-- TODO: smarter ascii art handling -->
 <!-- TODO: announcements -->
-<!-- TODO: username login -->
 <!-- TODO: send chat messages from site -->
 <!-- TODO: custom colors per user -->
-<!-- TODO: logout button -->

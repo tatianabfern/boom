@@ -222,6 +222,7 @@
 # 2.8.17 - major change of heart - silently supporting bash pre-4.4 - old versions will just be more bug-prone with booming empty lines
 # 2.8.18 - boom zone updated to not open zone by default
 # 2.8.19 - more robust handling for EPOCHSECONDS -- not relying on bash being 5.0+
+# 2.8.20 - bug fixes to support site logins - fixed board table cols bug and <user>.json generation
 
 DOOMBOOM=
 if [ -z "$USER" ]; then
@@ -478,7 +479,7 @@ if [[ -n "$BOOMSTATTRACKING" && -z "$BOOMSITERUNNER" ]]; then
     if [ ! -r "$rankfile" ]; then return; fi # Users need at least 1 boom to start stat tracking
     # Numbers at end of comments are idxes for awk
     echo -n " $1" >> $2 # user 1
-    echo -n " $(echo $(($(wc -w $rankfile | awk '{print $1}')-$(wc -l $rankfile | awk '{print $1}'))))" >> $2 # total 2
+    echo -n " $(echo $(($(wc -w <$rankfile)-$(wc -l <$rankfile))))" >> $2 # total 2
     echo -n " 0" >> $2 # longest drought 3
     echo -n " 0" >> $2 # fav count 4
     echo -n " 0" >> $2 # hall entries 5
@@ -500,7 +501,7 @@ if [[ -n "$BOOMSTATTRACKING" && -z "$BOOMSITERUNNER" ]]; then
 
     local topcmds=$(sort -k2 -nr <(while read line; do
                                      echo -n "$(echo "$line" | awk '{print $2}') ";
-                                     echo $(($(wc -w <(echo $line) | awk '{print $1}')-2));
+                                     echo $(($(wc -w < <(echo $line))-2));
                                    done < <(cat $rankfile | awk '{words = gsub(/ /, " ", $0); print words " " $0}' | sort -nr | head -n 10)) |
                     sed -e 's/ /;/' | xargs | sed 's/ /|/g')
     echo " $topcmds" >> $2 # top commands at start of year 21
@@ -602,25 +603,25 @@ fi
 
 # Set up site config env based on current env
 if [[ -z "$DOOMBOOM" && -z "$BOOMSITERUNNER" && -w "/$BOOMUSERDIR/$BOOMBOSS/$BOOMINSTALL/.boomserver/data/env/" ]]; then
-  echo "{ \"columns\": \"${BOOMTABLECOLS:-$(cat $_boomUsers | xargs)}\" }," \
+  echo "{ \"columns\": \"${BOOMTABLECOLS:-$(cat $_boomUsers | xargs)}\"," \
     > /$BOOMUSERDIR/$BOOMBOSS/$BOOMINSTALL/.boomserver/data/env/$USER.json
-  echo "{ \"boom_emoji\": \"${_BE_BOOM}\" }," \
+  echo "  \"boom_emoji\": \"${_BE_BOOM}\"," \
     >> /$BOOMUSERDIR/$BOOMBOSS/$BOOMINSTALL/.boomserver/data/env/$USER.json
-  echo "{ \"hole_emoji\": \"${_BE_HOLE}\" }," \
+  echo "  \"hole_emoji\": \"${_BE_HOLE}\"," \
     >> /$BOOMUSERDIR/$BOOMBOSS/$BOOMINSTALL/.boomserver/data/env/$USER.json
-  echo "{ \"bot_emoji\": \"${_BE_BOT}\" }," \
+  echo "  \"bot_emoji\": \"${_BE_BOT}\"," \
     >> /$BOOMUSERDIR/$BOOMBOSS/$BOOMINSTALL/.boomserver/data/env/$USER.json
-  echo "{ \"super_emoji\": \"${_BE_SUPER}\" }," \
+  echo "  \"super_emoji\": \"${_BE_SUPER}\"," \
     >> /$BOOMUSERDIR/$BOOMBOSS/$BOOMINSTALL/.boomserver/data/env/$USER.json
-  echo "{ \"hog_emoji\": \"${_BE_HOG}\" }," \
+  echo "  \"hog_emoji\": \"${_BE_HOG}\"," \
     >> /$BOOMUSERDIR/$BOOMBOSS/$BOOMINSTALL/.boomserver/data/env/$USER.json
-  echo "{ \"import_emoji\": \"${_BE_IMPORT}\" }," \
+  echo "  \"import_emoji\": \"${_BE_IMPORT}\"," \
     >> /$BOOMUSERDIR/$BOOMBOSS/$BOOMINSTALL/.boomserver/data/env/$USER.json
-  echo "{ \"export_emoji\": \"${_BE_EXPORT}\" }," \
+  echo "  \"export_emoji\": \"${_BE_EXPORT}\"," \
     >> /$BOOMUSERDIR/$BOOMBOSS/$BOOMINSTALL/.boomserver/data/env/$USER.json
-  echo "{ \"check_emoji\": \"${_BE_CHECK}\" }," \
+  echo "  \"check_emoji\": \"${_BE_CHECK}\"," \
     >> /$BOOMUSERDIR/$BOOMBOSS/$BOOMINSTALL/.boomserver/data/env/$USER.json
-  echo "{ \"ignore_holiday_emojis\": \"${NOBOOMHOLIDAY+true}\" }" \
+  echo "  \"ignore_holiday_emojis\": \"${NOBOOMHOLIDAY+true}\" }" \
     >> /$BOOMUSERDIR/$BOOMBOSS/$BOOMINSTALL/.boomserver/data/env/$USER.json
   chmod 644 /$BOOMUSERDIR/$BOOMBOSS/$BOOMINSTALL/.boomserver/data/env/$USER.json &>/dev/null
 fi
@@ -823,7 +824,7 @@ boommeter() {
   local boomtotal
   if [ -r "$_boomRankings" ]; then
     # Mult if boomed total%25=24 times (on 25th boom)
-    boomtotal=$(($(wc -w $_boomRankings | awk '{print $1}')-$(wc -l $_boomRankings | awk '{print $1}')))
+    boomtotal=$(($(wc -w <$_boomRankings)-$(wc -l <$_boomRankings)))
   else
     boomtotal=0
   fi
@@ -954,7 +955,7 @@ _boomlog() {
 }
 _boomavg() {
   local sum count
-  if [ -z "$(cat $_boomRankings | grep "^ $1 ")" ]; then return; fi
+  if [ -z "$(grep "^ $1 " $_boomRankings)" ]; then return; fi
   for num in $(sed -n "s|^ $1 ||p" $_boomRankings); do
     sum=$((sum+num))
     count=$((count+1))
@@ -968,7 +969,7 @@ _boomhog() {
     echo -n " $1" > $_boomStreak
     \chmod 644 $_boomStreak &>/dev/null
   fi
-  local streak=$(wc -w <(cat $_boomStreak) | awk '{{ print $1 }}')
+  local streak=$(wc -w <$_boomStreak)
   if [ "$streak" -ge "2" ]; then
     echo $_BE_BOOM$_BE_HOG$_BE_BOOM BOOM HOG! $1 is on a random boom streak of $streak in a row! $_BE_BOOM$_BE_HOG$_BE_BOOM
     echo $_BE_BOOM$_BE_HOG$_BE_BOOM BOOM HOG! $USER\'s $1 hit a random boom streak of $streak! $_BE_BOOM$_BE_HOG$_BE_BOOM >> $_boomUserLog
@@ -978,7 +979,7 @@ _boomhog() {
 _boomquest() {
   _rerollquest() {
     local cmds=()
-    local minusers=$(($(wc -l $_boomUsers | awk '{print $1}')/2+1))
+    local minusers=$(($(wc -l <$_boomUsers)/2+1))
     while read user; do
       local rankfile=/$BOOMUSERDIR/$user/$BOOMINSTALL/.boomrankings
       if [ ! -r "$rankfile" ]; then continue; fi
@@ -1004,6 +1005,7 @@ _boomquest() {
   fi
 }
 _jsonifyboomavgs() {
+  # Could use jq for the jsons here but unsure if systems will have it
   [ -z "$userList" ] && local userList=$(<$_boomUsers)
 
   echo -ne "{"
@@ -1077,7 +1079,7 @@ _jsonifytopbooms() {
       echo -ne "\"${place}\": \"$line\","
     done < <(sort -k2 -nr <(while read line; do
                               echo -n "$(echo "$line" | awk '{print $2}') ";
-                              echo $(($(wc -w <(echo $line) | awk '{print $1}')-2));
+                              echo $(($(wc -w < <(echo $line))-2));
                             done < <(cat $rankfile | awk '{words = gsub(/ /, " ", $0); print words " " $0}' | sort -nr | head -n $count)))
     echo -n erase
     echo -n "},"
@@ -1359,7 +1361,7 @@ boom() {
       local userList=$(<$_boomUsers)
       local userDR=$(<$_boomDroughtRecord)
 
-      if [ $# -ge 3 ]; then
+      if [[ $# -ge 3 && " $(echo $userList | xargs) " =~ " $3 " ]]; then
         userList=$(for word in ${@:3}; do sed -n "/^ $word$/p" $_boomUsers; done)
         userDR=$(for word in ${@:3}; do sed -n "/^ $word /p" $_boomDroughtRecord; done)
       elif [ -n "$BOOMTABLECOLS" ]; then
@@ -1416,7 +1418,7 @@ boom() {
         board_top_)
           local num=5
           for arg in $@; do
-            [[ "$arg" =~ [0-9]+ ]] && num=$arg
+            [[ "$arg" =~ ^[0-9]+$ ]] && num=$arg
           done
           echo
           /$BOOMUSERDIR/$BOOMBOSS/$BOOMINSTALL/.boomtables.py "$(_jsonifytopbooms $num | sed -re s/,?erase//g)" 0.0 twoper
@@ -1578,7 +1580,7 @@ boom() {
           if [[ ! -f "$histfile" ]]; then
             echo -n '' > $histfile
           else
-            __chat_env_hist_idx=$(wc -l $histfile | awk '{print $1}')
+            __chat_env_hist_idx=$(wc -l <$histfile)
           fi
 
           echo -n "$__chat_env_hist_idx" > /tmp/.chatenvcurridx-$USER
@@ -1713,9 +1715,9 @@ boom() {
             _update_and_print_chat absolute
 
             if [[ -n "$userInput" ]]; then
-              __chat_env_hist_idx=$(wc -l $histfile | awk '{print $1}')
+              __chat_env_hist_idx=$(wc -l <$histfile)
               echo "${__chat_env_hist_idx:-0} $userInput" >> $histfile
-              __chat_env_hist_idx=$(wc -l $histfile | awk '{print $1}')
+              __chat_env_hist_idx=$(wc -l <$histfile)
             fi
             echo -n "$__chat_env_hist_idx" > /tmp/.chatenvcurridx-$USER
 
@@ -2055,7 +2057,7 @@ boom() {
       if [[ -n "${2}" && " $(cat $_boomUsers | xargs) " =~ " ${2} " ]]; then
         local rankfile=/$BOOMUSERDIR/${2}/$BOOMINSTALL/.boomrankings
         if [ -r "$rankfile" ]; then
-          echo ${2} has boomed a total of $(echo $(($(wc -w $rankfile | awk '{print $1}')-$(wc -l $rankfile | awk '{print $1}')))) times!
+          echo ${2} has boomed a total of $(echo $(($(wc -w <$rankfile)-$(wc -l <$rankfile)))) times!
         else
           echo Error reading file for user ${2}
         fi
@@ -2064,11 +2066,11 @@ boom() {
         local rankfile=
         for user in $(cat $_boomUsers | xargs); do
           rankfile=/$BOOMUSERDIR/$user/$BOOMINSTALL/.boomrankings
-          [ -r $rankfile ] && fulltot=$(($fulltot+$(echo $(($(wc -w $rankfile | awk '{print $1}')-$(wc -l $rankfile | awk '{print $1}'))))))
+          [ -r $rankfile ] && fulltot=$(($fulltot+$(echo $(($(wc -w <$rankfile)-$(wc -l <$rankfile))))))
         done
         echo All users have boomed a total of $fulltot times!
       else
-        echo You have boomed a total of $(echo $(($(wc -w $_boomRankings | awk '{print $1}')-$(wc -l $_boomRankings | awk '{print $1}')))) times!
+        echo You have boomed a total of $(echo $(($(wc -w <$_boomRankings)-$(wc -l <$_boomRankings)))) times!
       fi
     ;;
     wrapped_)
@@ -2646,7 +2648,7 @@ _chat_cmds() {
       if [[ "$bad" == "yes" ]]; then echo boombot: $_BE_BOT $USER wants to ASCII so bad but just can\'t file >> $_boommeterLog; return; fi
       if [ $(wc -L "$file" | awk '{print $1}') -gt $maxlinechars ]; then echo $file needs to have a max line length of $maxlinechars; bad=yes;
       elif [ $(wc -l "$file" | awk '{print $1}') -gt $maxlines ]; then echo $file needs to have $maxlines or fewer lines; bad=yes;
-      elif [[ -n "$(diff <(cat $file) <(LC_ALL=C tr -dc '\0-\177' <$file) -q)" ]]; then echo Non-ASCII characters detected; bad=yes;
+      elif [[ -n "$(diff $file <(LC_ALL=C tr -dc '\0-\177' <$file) -q)" ]]; then echo Non-ASCII characters detected; bad=yes;
       fi
       if [[ "$bad" == "yes" ]]; then echo boombot: $_BE_BOT $USER is a struggling artist >> $_boommeterLog; return; fi
       while IFS= read line; do
@@ -2710,7 +2712,7 @@ _chat_cmds() {
           echo $_BE_BOT Give me a user to hype up! $_BE_BOT
         ;;
         *)
-          if [[ " $(cat $_boomUsers | xargs) " =~ " ${2#@} " ]]; then 
+          if [[ " $(cat $_boomUsers | xargs) " =~ " ${2#@} " ]]; then
             if [[ $(( $RANDOM % 70 )) -eq 3 ]]; then
               _bbmReward "Thanks for hyping up ${2#@}!"
               _chat_hype ${2#@} >> $_boommeterLog
@@ -2795,7 +2797,7 @@ _chat_cmds() {
           echo $_BE_BOT Give me a user to roast! $_BE_BOT
         ;;
         *)
-          if [[ " $(cat $_boomUsers | xargs) " =~ " ${2#@} " ]]; then 
+          if [[ " $(cat $_boomUsers | xargs) " =~ " ${2#@} " ]]; then
             if [[ $(( $RANDOM % 70 )) -eq 3 ]]; then
               echo boombot: $_BE_BOT HA! $USER tried to roast ${2#@}... get back to work! >> $_boommeterLog
             elif [[ $(( $RANDOM % 70 )) -eq 33 ]]; then
@@ -2820,7 +2822,7 @@ _chat_cmds() {
     ;;
     /text_all_)
       local maxlinechars=53
-      local inputchars=$(wc -m <(echo "${@:2}") | awk '{print $1}')
+      local inputchars=$(wc -m < <(echo "${@:2}"))
       local charlen=$(($(($inputchars-1))*4))
       if [ $charlen -gt $maxlinechars ]; then
         if [ $(($RANDOM%2)) -eq 1 ]; then
@@ -2859,7 +2861,7 @@ _chat_cmds() {
         secondline+=(" ")
         thirdline+=(" ")
       done
-      if [ $(wc -m <(echo "${firstline[@]}") | awk '{print $1}') -gt $maxlinechars ]; then 
+      if [ $(wc -m < <(echo "${firstline[@]}")) -gt $maxlinechars ]; then
         # There's a better way to do this but Ugly has standardized size so just regenerate if wrong
         firstline=()
         secondline=()
@@ -2928,7 +2930,7 @@ _chat_cmds() {
       if [[ -n "${2#@}" && " $(cat $_boomUsers | xargs) " =~ " ${2#@} " ]]; then
         local rankfile=/$BOOMUSERDIR/${2#@}/$BOOMINSTALL/.boomrankings
         if [ -r "$rankfile" ]; then
-          echo boombot: $_BE_BOT ${2#@} has boomed a total of $(echo $(($(wc -w $rankfile | awk '{print $1}')-$(wc -l $rankfile | awk '{print $1}')))) times! >> $_boommeterLog
+          echo boombot: $_BE_BOT ${2#@} has boomed a total of $(echo $(($(wc -w <$rankfile)-$(wc -l <$rankfile)))) times! >> $_boommeterLog
         else
           echo Error reading file for user ${2#@}
         fi
@@ -2937,13 +2939,13 @@ _chat_cmds() {
         local rankfile=
         for user in $(cat $_boomUsers | xargs); do
           rankfile=/$BOOMUSERDIR/$user/$BOOMINSTALL/.boomrankings
-          [ -r $rankfile ] && fulltot=$(($fulltot+$(echo $(($(wc -w $rankfile | awk '{print $1}')-$(wc -l $rankfile | awk '{print $1}'))))))
+          [ -r $rankfile ] && fulltot=$(($fulltot+$(echo $(($(wc -w <$rankfile)-$(wc -l <$rankfile))))))
         done
         echo boombot: $_BE_BOT All users have boomed a total of $fulltot times! >> $_boommeterLog
       elif [ "${2#@}" == "boombot" ]; then
         echo boombot: $_BE_BOT BoomBot\'s been booming since birth -- it\'s too high to count. $_BE_BOT>> $_boommeterLog
       else
-        echo boombot: $_BE_BOT $USER has boomed a total of $(echo $(($(wc -w $_boomRankings | awk '{print $1}')-$(wc -l $_boomRankings | awk '{print $1}')))) times! >> $_boommeterLog
+        echo boombot: $_BE_BOT $USER has boomed a total of $(echo $(($(wc -w <$_boomRankings)-$(wc -l <$_boomRankings)))) times! >> $_boommeterLog
       fi
     ;;
     /work_all_)
@@ -2997,7 +2999,7 @@ _boom() {
     if [[  " /roast /hype " =~ " $3 " ]]; then conditionals+=($(echo -n random)); fi
     COMPREPLY=($(compgen -W "${conditionals[@]} me boombot $(cat $_boomUsers)" -- ${2}));
     if [[ "$2" =~ ^"@" ]]; then
-      COMPREPLY=($(compgen -W "$(cat $_boomUsers | sed -e 's/^ /@/') @boombot" -- ${2}));
+      COMPREPLY=($(compgen -W "$(sed -e 's/^ /@/' $_boomUsers) @boombot" -- ${2}));
       return
     fi
     return
@@ -3008,7 +3010,7 @@ _boom() {
     COMPREPLY=($(compgen -W "${conditionals[@]}" -- ${2}));
   fi
   if [[ "$2" =~ ^"@" && " ${COMP_WORDS[1]} " =~ " chat " ]]; then
-    COMPREPLY=($(compgen -W "$(cat $_boomUsers | sed -e 's/^ /@/') @everyone @boombot" -- ${2}));
+    COMPREPLY=($(compgen -W "$(sed -e 's/^ /@/' $_boomUsers) @everyone @boombot" -- ${2}));
     return
   fi
   if [[ "$2" =~ ^"/" && " ${COMP_WORDS[1]} " =~ " chat " && ("${#COMP_WORDS[@]}" == "3" || ("${#COMP_WORDS[@]}" == "4" && "$3" == "cipher")) ]]; then
@@ -3047,7 +3049,7 @@ _boom() {
   [[ "$(date +%m)" != 12 ]] && options=("${options[@]//wrapped}")
 
   if [[ "$3" == "avg" && "3" == "${#COMP_WORDS[@]}" ]]; then
-    COMPREPLY=($(compgen -W "$(cat $_boomRankings | grep -v '[{}]' | awk '{print $1}')" -- $2));
+    COMPREPLY=($(compgen -W "$(grep -v '[{}]' $_boomRankings | awk '{print $1}')" -- $2));
   elif [[ "$3" == "total" && "${#COMP_WORDS[@]}" == "3" ]]; then
     COMPREPLY=($(compgen -W "$(cat $_boomUsers) all" -- $2));
   elif [[ "${COMP_WORDS[1]}" == "drought" && "$3" == "rarity" && "${#COMP_WORDS[@]}" == "4" ]]; then
@@ -3084,7 +3086,7 @@ complete -F _boom boom
 __boomavg() {
   if [[ "$DOOMBOOM" == "yes" ]]; then return; fi
   if [[ "$3" == "boomavg" && "2" == "${#COMP_WORDS[@]}" ]]; then
-    COMPREPLY=($(compgen -W "$(cat $_boomRankings | grep -v '[{}]' | awk '{print $1}')" -- $2));
+    COMPREPLY=($(compgen -W "$(grep -v '[{}]' $_boomRankings | awk '{print $1}')" -- $2));
   fi
 }
 complete -F __boomavg boomavg
@@ -3099,7 +3101,7 @@ _chat() {
     if [[  " /roast /hype " =~ " $3 " ]]; then conditionals+=($(echo -n random)); fi
     COMPREPLY=($(compgen -W "${conditionals[@]} me boombot $(cat $_boomUsers)" -- ${2}));
     if [[ "$2" =~ ^"@" ]]; then
-      COMPREPLY=($(compgen -W "$(cat $_boomUsers | sed -e 's/^ /@/') @boombot" -- ${2}));
+      COMPREPLY=($(compgen -W "$(sed -e 's/^ /@/' $_boomUsers) @boombot" -- ${2}));
       return
     fi
     return
@@ -3142,7 +3144,7 @@ _chat() {
     return
   fi
   if [[ "$2" =~ ^"@" ]]; then
-    COMPREPLY=($(compgen -W "$(cat $_boomUsers | sed -e 's/^ /@/') @everyone @boombot" -- ${2}));
+    COMPREPLY=($(compgen -W "$(sed -e 's/^ /@/' $_boomUsers) @everyone @boombot" -- ${2}));
     return
   fi
   if [[ "$2" =~ ^"/" && ("${#COMP_WORDS[@]}" == "2" || ("${#COMP_WORDS[@]}" == "3" && "$3" == "cipher")) ]]; then
@@ -3262,6 +3264,7 @@ fi
 #TODO: maybe reward if X+ booms are imported at once to make up for missing super boom milestones (25 multiples)
 #TODO: de-duplicate chat completion by calling _boom with current args similiar to magic alias function - maybe just change args checked by if called with chat or boom
 #TODO: Only persist doom if doom command is run? Currently, we persist when an error happens but notify user if automatically doomed
+#TODO: Consistently silently support help for currently unsupported `boom CMDs`
 
 #CANCELLEDTODO: happy/sad boombot based on boombot mode activity: lots of work for what
 #CANCELLEDTODO: more boom mult situations?: need to not overdo mult... goal is avgs under 5 mostly, don't want to cheapen super booms

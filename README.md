@@ -91,7 +91,7 @@ Uninstallation is very straightforward. To uninstall all files created outside o
 
 
 ## Docs
-The below boomdocs output was generated as of patch 2.8.19:
+The below boomdocs output was generated as of patch 2.8.20:
 
 ```text
 Commands in the .boomrc suite:
@@ -320,9 +320,10 @@ Commands in the .boomrc suite:
 ```
 
 ## Patch Notes
-The below patchnotes output was generated as of patch 2.8.19:
+The below patchnotes output was generated as of patch 2.8.20:
 
 ```text
+# 2.8.20 - bug fixes to support site logins - fixed board table cols bug and <user>.json generation
 # 2.8.19 - more robust handling for EPOCHSECONDS -- not relying on bash being 5.0+
 # 2.8.18 - boom zone updated to not open zone by default
 # 2.8.17 - major change of heart - silently supporting bash pre-4.4 - old versions will just be more bug-prone with booming empty lines

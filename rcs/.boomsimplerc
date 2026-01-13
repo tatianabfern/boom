@@ -118,7 +118,7 @@ _simpleboommeter() {
       if [ -f $_boomRankings ]; then
         echo "$_BE_BOOM$_BE_EXPORT$_BE_BOOM Exporting booms from $BOOMDEST $_BE_BOOM$_BE_EXPORT$_BE_BOOM"
         echo "$_BE_BOOM host: $BOOMDEST"
-        cat $_boomRankings | sed 's/^[^ ]\+/'"$_BE_BOOM"'/'
+        sed 's/^[^ ]\+/'"$_BE_BOOM"'/' $_boomRankings
         echo "$_BE_BOOM$_BE_CHECK$_BE_BOOM Export Complete $_BE_BOOM$_BE_CHECK$_BE_BOOM"
       else
         echo "$_BE_BOOM$_BE_HOLE$_BE_BOOM No booms to export from $BOOMDEST! $_BE_BOOM$_BE_HOLE$_BE_BOOM"
@@ -242,7 +242,7 @@ _checkForBoomImports() {
     files=($(csplit $_boomImportReady -z -f $prefix '/host:.*/' '{*}'))
 
     if [ -r $_boomRankings ]; then
-      currtot=$(($(wc -w $_boomRankings | awk '{print $1}')-$(wc -l $_boomRankings | awk '{print $1}')))
+      currtot=$(($(wc -w <$_boomRankings)-$(wc -l <$_boomRankings)))
     else
       currtot=0
     fi

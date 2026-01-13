@@ -132,6 +132,7 @@ _boombarenv() {
       cleanarg="${cleanarg//\"/\\\"}"
       cleanarg="${cleanarg//\`/\\\`}"
       cleanarg="${cleanarg//\&/\\\&}"
+      cleanarg="${cleanarg//\$/\\\$}"
 
       echo "export BOOMBAR_BBMREMARK=\"$cleanarg\"" > /tmp/.boombar-bbmremark
       source /tmp/.boombar-bbmremark

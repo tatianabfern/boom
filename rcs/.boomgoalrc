@@ -13,6 +13,18 @@ _boomgoal_blackbox() {
   _bc_ge() { [[ "$(_bc "$1 >= $2")" == "1" ]]; } # float ge
   _bc_le() { [[ "$(_bc "$1 <= $2")" == "1" ]]; } # float le
   _clampf() { _bc "if ($1 < $2) $2 else if ($1 > $3) $3 else $1"; } # clamp to min/max
+  _round_nicely() {
+    # Nice rounding step by magnitude (ints)
+    local step goal_int="$1"
+    if   (( goal_int < 100 ));  then step=5
+    elif (( goal_int < 500 ));  then step=10
+    elif (( goal_int < 2000 )); then step=25
+    else                             step=50
+    fi
+    # /2 to round up when we should
+    goal_int=$(( (goal_int + step/2) / step * step ))
+    printf "%s\n" "$goal_int"
+  }
 
   ### Populate calling variables ###
   local prev_k prev_ema last_goal last_ach
@@ -24,7 +36,7 @@ _boomgoal_blackbox() {
 
   ### Calculate date range for new goal ###
   local start end days dow offset anchor
-  local ymd midnight
+  local ymd midnight ignore_days
 
   start=${EPOCHSECONDS:-$(TZ=$BOOMTZ date +%s)}
 
@@ -40,19 +52,17 @@ _boomgoal_blackbox() {
   anchor=$(( midnight - offset*86400 ))
   end=$(( anchor + 14*86400 )) # 2 weeks
 
-  # Ensure at least 7 days - this check should be redundant
-  if (( end - start < 7*86400 )); then
-    end=$(( end + 7*86400 ))
-  fi
-
-  # Ceil days remaining
+  # Find work days remaining in window
   days=$(( (end - start + 86399) / 86400 ))
+  ignore_days="$(_bc_int "$days/3.5")" # skip 2 days per week
+  days=$(( days - $ignore_days ))
+  (( days < 7 )) && days=7
 
   ### Calculate min/expected/max goal based on time
-  local minGoal expGoal maxGoal users BPB BPC
-  local minCmds expCmds maxCmds
+  local min_goal exp_goal max_goal users BPB BPC
+  local min_cmds exp_cmds max_cmds
 
-  users=$(wc -l $_boomUsers | awk '{print $1}')
+  users=$(wc -l <$_boomUsers)
   (( users < 1 )) && users=1
 
   # "booms" per random boom of command
@@ -61,34 +71,31 @@ _boomgoal_blackbox() {
   BPC=$(_bc "($BPB*($users-1) + $BPB*1.5) / $users")
 
   # Expected cmd booms per user per window
-  minCmds=$(_bc "3*$days") # min hits goal can be
-  expCmds=$(_bc "7*$days") # expected hits for goal
-  maxCmds=$(_bc "15*$days") # max hits for goal
+  min_cmds=$(_bc "3*$days") # min hits goal can be
+  exp_cmds=$(_bc "5*$days") # expected hits for goal
+  max_cmds=$(_bc "15*$days") # max hits for goal
 
   # Expected booms earned per window overall
-  minGoal=$(_bc_int "$minCmds*$BPC*$users")
-  expGoal=$(_bc     "$expCmds*$BPC*$users")
-  maxGoal=$(_bc_int "$maxCmds*$BPC*$users")
+  min_goal=$(_bc_int "$min_cmds*$BPC*$users")
+  exp_goal=$(_bc     "$exp_cmds*$BPC*$users")
+  max_goal=$(_bc_int "$max_cmds*$BPC*$users")
+
+  min_goal=$(_round_nicely $min_goal)
+  max_goal=$(_round_nicely $max_goal)
 
   ### Tuning defaults for pass rate target of 80% ###
-  local ALPHA TARGET BAND UP_S UP_B DN_S DN_B K_MIN K_MAX
+  local ALPHA TARGET BAND K_MIN K_MAX
 
   # EMA smoothing - EMA is of pass rate
-  ALPHA=".3"
+  ALPHA=".45"
 
   # Target pass rate and dead band
   TARGET=".8"
   BAND=".03" # +/-3% around target
 
-  # k step sizes
-  UP_S=".02"
-  UP_B=".04"
-  DN_S=".03"
-  DN_B=".06"
-
   # k bounds (goal is clamped to min/max, but this prevents runaway k)
-  K_MIN=".4" # 3 / 7 (ish)
-  K_MAX="2.3" # 15 / 7 (ish)
+  K_MIN=".6" # 3 / 5
+  K_MAX="3.0" # 15 / 5
 
   ### Update EMA from last window ###
   local goal_passed new_ema new_k
@@ -105,60 +112,255 @@ _boomgoal_blackbox() {
   fi
 
   ### Adjust k to target pass rate ###
-  local upper lower
-  upper="$(_bc "$TARGET + $BAND")"
-  lower="$(_bc "$TARGET - $BAND")"
+  local ratio P biasG ema_err
 
-  # Pass too often (EMA above TARGET+BAND), increase difficulty (k).
-  if _bc_ge "$new_ema" "$upper"; then
-    new_k="$(_bc "$prev_k + $UP_S")"
-  # Fail too often (EMA below TARGET-BAND), decrease difficulty (k).
-  elif _bc_le "$new_ema" "$lower"; then
-    new_k="$(_bc "$prev_k - $DN_S")"
-  # Meeting target (in dead band)
-  else
-    new_k="$prev_k"
-  fi
+  P=".6"
+  biasG=".12"
 
-  # Adjust more aggressively for a bigger pass/fail
   if (( last_goal > 0 )); then
-    local ratio="$(_bc "$last_ach / $last_goal")"
-    if _bc_ge "$ratio" "1.25"; then
-      new_k="$(_bc "$new_k + $UP_B")"
-    elif _bc_le "$ratio" "0.75"; then
-      new_k="$(_bc "$new_k - $DN_B")"
-    fi
+    ratio="$(_bc "if ($last_ach <= 0) 0.1 else $last_ach/$last_goal")"
+  else
+    ratio="1"
   fi
 
+  ratio="$(_clampf $ratio .5 1.5)"
+  new_k="$(_bc "$prev_k * e($P * l($ratio))")" # prev_k * ratio ^ P
+
+  # Check if within dead band
+  ema_err="$(_bc "$new_ema - $TARGET")"
+  if _bc_le "$ema_err" "$BAND" && _bc_ge "$ema_err" "-$BAND"; then
+    ema_err="0"
+  fi
+
+  new_k="$(_bc "$new_k + $biasG*($ema_err)")"
   new_k="$(_clampf "$new_k" "$K_MIN" "$K_MAX")"
 
   ### Calc next goal from band and k ###
   local raw clamped goal_int
 
-  raw="$(_bc "$expGoal * $new_k")"
-  clamped="$(_clampf "$raw" "$minGoal" "$maxGoal")"
+  raw="$(_bc "$exp_goal * $new_k")"
+  clamped="$(_clampf "$raw" "$min_goal" "$max_goal")"
   goal_int="$(_bc_int "$clamped")"
 
-  # Nice rounding step by magnitude (ints)
-  local step
-  if   (( goal_int < 100 ));  then step=5
-  elif (( goal_int < 500 ));  then step=10
-  elif (( goal_int < 2000 )); then step=25
-  else                             step=50
-  fi
-  # /2 to round up when we should
-  goal_int=$(( (goal_int + step/2) / step * step ))
+  goal_int=$(_round_nicely $goal_int)
 
   # Ensure int goal stays within min/max
-  (( goal_int < minGoal )) && goal_int="$minGoal"
-  (( goal_int > maxGoal )) && goal_int="$maxGoal"
+  (( goal_int < min_goal )) && goal_int="$min_goal"
+  (( goal_int > max_goal )) && goal_int="$max_goal"
 
   # Goal learning doesn't care about users/days changes
   printf "%s %.2f %.2f %s\n" \
     "$goal_int" "$new_k" "$new_ema" "$end"
 }
 
+_boomgoal_printer() {
+  # _boomgoal_printer CURR GOAL [TUBE_H]
+
+  ### Initialize variables ###
+  local curr goal height tube_w emoji_cols min_l_pad
+  local percent disp_percent filled_rows inner_cols
+  local tube_cols tube_left lines tube_h y0 cols
+
+  curr=$1
+  goal=$2
+  tube_h=${3:-20}
+  (( tube_h >= 3 )) || { echo boomgoal: ERROR: Goal bar height must be 3 or greater; return 1; }
+
+  tube_w=4
+  emoji_cols=2
+  min_l_pad=2
+
+  percent=$(( curr * 100 / goal ))
+  disp_percent=$percent
+  (( percent > 100 )) && percent=100
+
+  filled_rows=$(( percent * tube_h / 100 ))
+  inner_cols=$(( tube_w * emoji_cols ))
+
+  cols="$(tput cols)"
+  tube_cols=$(( inner_cols + 6 ))
+  tube_left=$(( (cols - tube_cols) / 2 ))
+  (( tube_left < 0 )) && tube_left=0
+
+  (( tube_left < min_l_pad )) && tube_left=$min_l_pad
+
+  lines="$(tput lines)"
+  height=$(( tube_h + 7 ))
+  if (( lines < height + 1 )); then
+    echo "boomgoal: ERROR: Terminal too small ($lines lines). Need at least $((height+1)) lines (tube height=$tube_h)"
+    echo "                 Run with HEIGHT arg <= $(( lines - 8 > 1 ? lines - 8 : 1 )) or resize terminal to show full tube"
+    return 1
+  fi
+
+  y0=$(( (lines - height) / 2 ))
+  (( y0 < 0 )) && y0=0
+
+  ### Fill exact locations ###
+  # Print layout:
+  # y0:   title
+  # y0+1: percentage
+  # y0+2: tube top
+  # y0+3..y0+3+tube_h-1: emojis
+  # y0+3+tube_h: tube bottom
+  # y0+3+tube_h+2: footer
+  # y0+3+tube_h+3: goal line (optional)
+
+  local title_y pct_y top_y tube_top tube_bottom
+  local bottom_y footer_y goal_y fill_left label_gap
+  local label_col spark_col
+
+  # Y locations
+  title_y=$y0
+  pct_y=$((y0 + 1))
+  top_y=$((y0 + 3))
+  tube_top=$((y0 + 4))
+  tube_bottom=$(( tube_top + tube_h - 1 ))
+  bottom_y=$(( tube_top + tube_h ))
+  footer_y=$(( tube_top + tube_h + 2 ))
+  goal_y=$(( tube_top + tube_h + 3 ))
+
+  # X locations
+  fill_left=$(( tube_left + 3 ))
+  label_gap=2
+  label_col=$(( tube_left + 4 + inner_cols + label_gap ))
+  spark_col=$(( label_col - 2 ))
+
+  ### Establish helper functions ###
+  # Tiny helpers
+  xy()    { tput cup "$1" "$2"; }
+  c()     { tput setaf "$1"; } # 0-7
+
+  # Big helpers
+  draw_tube_contents() {
+    local row="$1" emoji="$2" out="" i
+
+    xy "$row" "$fill_left"
+    c 1
+
+    for ((i=0; i<$tube_w; i++)); do out+="$emoji"; done
+    printf "%s" "$out"; tput sgr0
+  }
+
+  draw_starting_tube() {
+    local title prog bar="" footer
+
+    tput clear
+
+    # Title
+    title="BOOM GOAL"
+    xy "$title_y" $(( tube_left + (tube_cols - ${#title}) / 2 ))
+    tput bold; c 3; printf "%s" "$title"; tput sgr0
+
+    # Percent complete
+    prog=$(printf "Progress: %'d / %'d booms (%d%%)" "$curr" "$goal" "$disp_percent")
+    xy "$pct_y" $(( tube_left + (tube_cols - ${#prog}) / 2 ))
+    c 7; printf "%s" "$prog"; tput sgr0
+
+    for ((i=0; i<$inner_cols; i++)); do bar+="─"; done
+
+    # Tube top
+    xy "$top_y" "$tube_left"
+    printf "  ┌%s┐  " "$bar"
+
+    # Borders and bombs
+    for ((i=tube_top; i<tube_top+tube_h; i++)); do
+      xy "$i" "$tube_left"
+      printf "  │%*s│  " "$inner_cols" ""
+      draw_tube_contents "$i" "💣"
+    done
+
+    # Tube bottom
+    xy "$bottom_y" "$tube_left"
+    printf "  └%s┘  " "$bar"
+
+    # Scale labels
+    xy "$tube_top"                    "$label_col"; printf "100%%"
+    xy "$((tube_top + tube_h/2))"     "$label_col"; printf "50%%"
+    xy "$tube_bottom"                 "$label_col"; printf "0%%"
+
+    # Footer
+    footer="Press any key to exit."
+    xy "$footer_y" $(( tube_left + (tube_cols - ${#footer}) / 2 ))
+    c 7; printf "%s" "$footer"; tput sgr0
+
+    # Goal hit space
+    xy "$goal_y" 0
+    printf "%*s" "$cols" ""
+  }
+
+  ### Run display ###
+  (
+    exit_screen()  { tput cnorm; tput rmcup; }
+    trap 'exit_screen' EXIT
+
+    tput smcup
+    tput civis
+
+    draw_starting_tube
+
+    # Explode the bombs according to progress
+    local i row
+    for ((i=0; i<filled_rows; i++)); do
+      row=$(( tube_bottom - i ))
+      draw_tube_contents "$row" "💥"
+
+      # Draw spark that explodes bombs
+      xy "$row" "$spark_col"; c 2; printf "✨"; tput sgr0
+      sleep 0.03
+      xy "$row" "$spark_col"; printf " "
+    done
+
+    if (( percent >= 100 )); then
+      local msg="GOAL HIT! 🎉💥🎉"
+      xy "$goal_y" $(( tube_left + (tube_cols - ${#msg}) / 2 ))
+      tput bold; c 2; printf "%s" "$msg"; tput sgr0
+    fi
+
+    read -rsn1
+  )
+}
+
 _boomgoal() {
-  _boomgoal_blackbox 1.00 .8 0 0
+  _boom_goal_inited() { [[ -n "$_boomGoal" && -w "$_boomGoal" ]]; }
+  _boom_goal_active() {
+    # awk goal file for end timestamp
+    # if old, return 1
+    :
+  }
+  _admin() { [[ " $BOOMADMINS " =~ " $USER " ]]; }
+
+  # Silently support help
+  if [[ "$1" == "help" ]]; then boomdocs boom-goal; return; fi
+
+  if ! _admin; then
+    if ! _boom_goal_inited; then
+      echo $_BE_BOT Ask an admin \($BOOMADMINS\) to run \`boom goal init\`!
+      return
+    fi
+    if ! _boom_goal_active; then
+      echo $_BE_BOT Ask an admin \($BOOMADMINS\) to start the next goal!
+      return
+    fi
+  else
+    if ! _boom_goal_inited; then
+      echo $_BE_BOT Run \`boom goal init\` to set a new goal!
+      return
+    fi
+    if ! _boom_goal_active; then
+      echo $_BE_BOT Run \`boom goal init\` to start the next goal!
+      return
+    fi
+  fi
+
+  # Case statement with:
+  # init
+  # progress
+  # some form of _log run where flock to write bangs to file to call from _boommeter
+  #   - can print to user log when approaching milestones and when goal re-roll is available
+  # query run during fav re-roll to see if inactive and if so did pass?
+  #   - support everyone is favorite today on favorite side
+
+  #_boomgoal_blackbox 1.00 .8 0 0
+  _boomgoal_printer 700 1000
 }
 
