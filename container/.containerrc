@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+
+# Simple rc to mount in for all boom-dev container users
+
+alias ls='ls --color -al'
+export USER=$(whoami)
+
+PROMPT_COMMAND=_boommeter
+source ~boom-dev/.boomrc
+

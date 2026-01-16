@@ -64,6 +64,7 @@ Here is a breakdown of all .boom\*rc files and a brief description of what they 
 |.boomholidayrc|This rc is an optional rc that adds festive themes throughout the year!|Sourced|
 |.boompollrc|This rc includes necessary code for the `boom poll` command to function.|Sourced|
 |.boomsimplerc|This is the rc that enables boom sessions through `boomexec` and `boomssh`. It is essential if you plan to take the boom with you when you travel to other machines/containers.|Sourced|
+|.containerrc|This is a separate rc from the boom suite that is used in the `boom-dev` container to source the `.boomrc` by default for all container users.|Not Sourced|
 
 Again, the recommended way to source these is by creating a custom `.boomrc` file in an easy-to-access place that sets BOOMCFGFILE and sources the repo's `.boomrc` file. This breakdown is just here to provide brief documentation on what each rc file does.
 

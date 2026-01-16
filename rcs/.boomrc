@@ -556,6 +556,7 @@ if [[ -n "$BOOMSTATTRACKING" && -z "$BOOMSITERUNNER" ]]; then
   # Create new statfile if new year
   if [[ ! -f "$statfile" ]]; then
     echo boomrc: Setting up yearly stat tracking for boom wrapped, please do not ^C
+    touch $statfile
     while read user; do
       __populateStatTracking $user $statfile
     done < $_boomUsers
