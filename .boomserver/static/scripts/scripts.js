@@ -464,7 +464,7 @@ function updateContents() {
         if (windowState.contentRender === "avg") { // sticky scrolling when table is in focus
             let splitContent = boomBoardAvgContent.split("<br>")
 
-            outputText += `<div class="table-head"><h2 style="text-align: center;">Boom Average</h2><br>${splitContent[1]}<br>${splitContent[2]}</div>`;
+            outputText += `<div class="table-head"><h2 style="text-align: center; width: 100%;">Boom Average</h2><br>${splitContent[1]}<br>${splitContent[2]}</div>`;
 
             let bodyContent = "";
             for (let i = 3; i < splitContent.length; i++) {
@@ -482,7 +482,7 @@ function updateContents() {
         if (windowState.contentRender === "freq") { // sticky scrolling when table is in focus
             let splitContent = boomBoardFreqContent.split("<br>")
 
-            outputText += `<div class="table-head"><h2 style="text-align: center;">Boom Frequency</h2><br>${splitContent[1]}<br>${splitContent[2]}</div>`;
+            outputText += `<div class="table-head"><h2 class="table-title" style="text-align: center; width: 100%;">Boom Frequency</h2><br>${splitContent[1]}<br>${splitContent[2]}</div>`;
 
             let bodyContent = "";
             for (let i = 3; i < splitContent.length; i++) {

@@ -291,7 +291,7 @@ if [ -z "$BOOMSITERUNNER" ]; then
   checkConfigArgs BOOMTZ      "$(timedatectl show -p Timezone --value 2>/dev/null || { readlink /etc/localtime | sed 's|.*zoneinfo/||'; })" # default to local time
   checkConfigArgs BOOMCONTS   "sudo docker"
   checkConfigArgs BOOMPORT    9029
-  checkConfigArgs BOOMSITE    "http://$HOSTNAME:$BOOMPORT"
+  checkConfigArgs BOOMSITE    "http://$HOSTNAME:${BOOMPORT:-9029}"
   checkConfigArgs BOOMSITECMD "firefox --new-tab"
   unset tmpconfig checkConfigArgs
 
@@ -361,19 +361,19 @@ _goodEmoji() {
   [[ -z "$s" ]] && exitCode=1
 
   # Reject any whitespace
-  [[ "$s" == *[[:space:]]* ]] && exitCode=1
+  [[ "$s" == *[[:space:]]* ]] && exitCode=2
 
   # Reject any ASCII control characters
-  LC_ALL=C printf '%s' "$s" | grep -q '[[:cntrl:]]' && exitCode=1
+  LC_ALL=C printf '%s' "$s" | grep -q '[[:cntrl:]]' && exitCode=3
 
   # Reject shell metacharacters
-  [[ "$s" == *[\`\"\'\\\$]* ]] && exitCode=1
+  [[ "$s" == *[\`\"\'\\\$]* ]] && exitCode=4
 
   # Reject long strings
-  [[ ${#s} -ge 3 ]] && exitCode=1
+  [[ ${#s} -ge 3 ]] && exitCode=5
 
   if [[ "$exitCode" == "1" ]]; then
-    echo "boomrc: ERROR: $s is an invalid emoji, ignoring..."
+    echo "boomrc: ERROR: $s is an invalid emoji, ignoring with exit code $exitCode..."
   fi
 
   return $exitCode

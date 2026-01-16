@@ -102,6 +102,7 @@ createFile .boomquest         "$firstQuest"     || exit 1 # it's ls, people
 createFile .boomtimeout       ""                || exit 1
 createFile .boomfavor         "$USER\n $USER\n" || exit 1
 
+pushd $EXPECTED_BOOMINSTALL
 if [ ! -f ".boomemojis" ]; then
   echo Creating symlink to .boomemojis
   ln -s $EXPECTED_BOOMRCS/.boomemojis $EXPECTED_BOOMINSTALL || exit 1
@@ -110,6 +111,7 @@ if [ ! -f ".boomtables.py" ]; then
   echo Creating symlink to .boomtables.py
   ln -s $EXPECTED_BOOMRCS/.boomtables.py $EXPECTED_BOOMINSTALL || exit 1
 fi
+popd
 
 BOOMCFGFILE=$EXPECTED_BOOMINSTALL/.boomconfig
 BOOMRC_FILE=$EXPECTED_BOOMRCS/rcs/.boomrc

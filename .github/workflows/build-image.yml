@@ -61,6 +61,8 @@ jobs:
           context: .
           file: ./container/Dockerfile
           push: ${{ env.DO_PUSH }}
-          tags: ghcr.io/${{ env.OWNER }}/boom:${{ env.IMAGE_TAG }}
+          tags: |
+            ghcr.io/${{ env.OWNER }}/boom:${{ env.IMAGE_TAG }}
+            ghcr.io/${{ env.OWNER }}/boom:latest
           platforms: linux/amd64,linux/arm64
 
