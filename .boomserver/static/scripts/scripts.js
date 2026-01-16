@@ -200,6 +200,7 @@ async function boomFetch(endpoint, body = {}) {
 
             // retry request after delay
             retries += 1;
+            if (retries > 5) retries = 5;
             await sleep(1000 * retries * retries);
 
             continue;
@@ -210,6 +211,12 @@ async function boomFetch(endpoint, body = {}) {
     }
 
     loadProgressBar();
+
+    // Set active user if unset (api cookie without login)
+    let usern = data.user || null;
+    if (usern !== "default" && usern !== null) {
+      activeUser = usern;
+    }
 
     return data;
 }
@@ -236,7 +243,11 @@ async function fetchBoomEmoji() {
 
     boomEmoji = retVal;
     const header = document.getElementById("boom-header");
-    header.innerHTML = `${boomEmoji.repeat(5)} Welcome to the <span class="hover-red"> BOOM </span> zone! ${boomEmoji.repeat(5)}`;
+
+    (activeUser === null)
+        ? header.innerHTML = `${boomEmoji.repeat(5)} Welcome to the <span class="hover-red"> BOOM </span> zone! ${boomEmoji.repeat(5)}`
+        : header.innerHTML = `${boomEmoji.repeat(5)} Welcome to ${activeUser}'s <span class="hover-red"> BOOM </span> zone! ${boomEmoji.repeat(5)}`;
+
     const enc = encodeURIComponent(boomEmoji);
     document.body.style.cursor = `url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 100 100'%3E%3Ctext y='78' font-size='82'%3E${enc}%3C/text%3E%3C/svg%3E") 16 16, auto`;
 

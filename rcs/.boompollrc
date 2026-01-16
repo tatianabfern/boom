@@ -185,8 +185,8 @@ _boompoll() {
           echo -n $READLINE_LINE > $currfile
         fi
 
-        test ${#__poll_env_idxs[@]} -gt 0 || return
-        test $((__poll_env_idx-1))  -ge 0 || return
+        [ ${#__poll_env_idxs[@]} -gt 0 ] || return
+        [ $((__poll_env_idx-1))  -ge 0 ] || return
         echo -n "$((__poll_env_idx-1))" > $idxfile
 
         READLINE_LINE="${__poll_env_hist[$(cat $idxfile)]}"
@@ -204,7 +204,7 @@ _boompoll() {
         done < $histfile
         __poll_env_idx=$(cat $idxfile)
 
-        if test $((__poll_env_idx+1)) -eq ${#__poll_env_idxs[@]}; then
+        if [ $((__poll_env_idx+1)) -eq ${#__poll_env_idxs[@]} ]; then
           echo -n "${#__poll_env_idxs[@]}" > $idxfile
 
           READLINE_LINE="$(cat $currfile 2>/dev/null)"
@@ -212,7 +212,7 @@ _boompoll() {
 
           \rm $currfile &>/dev/null
           return
-        elif test $((__poll_env_idx+1)) -gt ${#__poll_env_idxs[@]}; then
+        elif [ $((__poll_env_idx+1)) -gt ${#__poll_env_idxs[@]} ]; then
           return
         fi
 
@@ -476,6 +476,8 @@ _boompoll() {
               title="${userInput#* }"
               [[ "$title" =~ " - " ]] && echo "   Changing \` - \` character to \`-\` for processing"
               title="${title// - /-}"
+              [[ "$title" =~ "\"" ]] && echo "   Removing \`\"\` character for processing"
+              title="${title//\"}"
               title="$(sed -e 's/ \+$//' -e 's/^ \+//' <<<"$title")"
 
               grep -q "^[POLL \[0-9\]\+] -t $title - " $_boommeterLog && echo "   Title already found in current chat session - please use an alternate title" && continue
@@ -669,6 +671,7 @@ _boompoll() {
       else
         echo "pollbot: 🗳️ Vote(s) have been added to poll \"$title\"" >> $_boommeterLog
       fi
+      [[ -n "$BOOMSTATTRACKING" ]] && _boomStatInc $USER 15
     ;;
     _help_)
       boomdocs boom-poll

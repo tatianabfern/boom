@@ -349,7 +349,7 @@
 🎏 F09F8E8F -carpstreamer
 🎐 F09F8E90 -windchime
 🎑 F09F8E91 -moonviewingceremony
-🎒 F09F8E92 -schoolsatchel
+🎒 F09F8E92 -backpack
 🎓 F09F8E93 -graduationcap
 🎠 F09F8EA0 -carouselhorse
 🎡 F09F8EA1 -ferriswheel
@@ -442,7 +442,7 @@
 🐲 F09F90B2 -dragonface
 🐳 F09F90B3 -spoutingwhale
 🐴 F09F90B4 -horseface
-🐵 F09F90B5 -monkeyface
+🐵 F09F90B5 -monkeyface-
 🐶 F09F90B6 -dogface
 🐷 F09F90B7 -boomhog-
 🐸 F09F90B8 -frogface
@@ -656,7 +656,7 @@
 🔢 F09F94A2 -inputsymbolfornumbers
 🔣 F09F94A3 -inputsymbolforsymbols
 🔤 F09F94A4 -inputsymbolforlatinletters
-🔥 F09F94A5 -fire
+🔥 F09F94A5 -fire-
 🔦 F09F94A6 -electrictorch
 🔧 F09F94A7 -wrench
 🔨 F09F94A8 -hammer

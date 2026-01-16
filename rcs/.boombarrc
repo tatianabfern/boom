@@ -141,6 +141,7 @@ _boombarenv() {
       # Call with LASTBOOM <boomnum> <cmd>
       local tmpfile=/tmp/.boombar-lastboom
       local cmd=${3//[\"\']/}
+      cmd=${cmd//\\/\\\\}
       echo "export BOOMBAR_LASTBOOMS=\"$(for i in $(seq $2); do echo -n $_BE_BOOM; done)\"" > $tmpfile
       echo "export BOOMBAR_LASTNUM=\"$2\"" >> $tmpfile
       echo "export BOOMBAR_LASTCMD=\"$cmd\"" >> $tmpfile
@@ -337,7 +338,7 @@ _boombardrawer() {
     printf '\033[%d;%dH' "$LINES" 0 # move cursor to the bottom line
     printf '\033[0K' # clear the line
 
-    cat $BOOMBARCONTENTFILE 2>/dev/null # print boombar
+    \cat $BOOMBARCONTENTFILE 2>/dev/null # print boombar
 
   printf '\0338' # restore the cursor location
   printf '\033[K' # clean up rest of line in case bar pooped itself

@@ -223,6 +223,7 @@
 # 2.8.18 - boom zone updated to not open zone by default
 # 2.8.19 - more robust handling for EPOCHSECONDS -- not relying on bash being 5.0+
 # 2.8.20 - bug fixes to support site logins - fixed board table cols bug and <user>.json generation
+# 2.8.21 - re-write custom emojis on each source to instantly reflect changes
 
 DOOMBOOM=
 if [ -z "$USER" ]; then
@@ -327,6 +328,15 @@ _BE_IMPORT_DEF="⬇️"
 _BE_EXPORT_DEF="⬆️"
 _BE_CHECK_DEF="✅"
 
+_BE_BOOM=
+_BE_HOLE=
+_BE_BOT=
+_BE_SUPER=
+_BE_HOG=
+_BE_IMPORT=
+_BE_EXPORT=
+_BE_CHECK=
+
 # Optional boom configuration files
 if [[ -r "/$BOOMUSERDIR/$BOOMBOSS/$BOOMRCS/optional/.boomholidayrc" && -z "$NOBOOMHOLIDAY" ]]; then
   # Boom holiday emojis
@@ -334,13 +344,49 @@ if [[ -r "/$BOOMUSERDIR/$BOOMBOSS/$BOOMRCS/optional/.boomholidayrc" && -z "$NOBO
 fi
 
 [ -z "$_BE_BOOM" ] && _BE_BOOM="${BOOM_EMOJI:-$_BE_BOOM_DEF}"
-[ -z "$_BE_HOLE" ] && _BE_HOLE="${BOOM_HOLE:-$_BE_HOLE_DEF}"
+[ -z "$_BE_HOLE" ] && _BE_HOLE="${HOLE_EMOJI:-$_BE_HOLE_DEF}"
 [ -z "$_BE_BOT" ] && _BE_BOT="${BOT_EMOJI:-$_BE_BOT_DEF}"
 [ -z "$_BE_SUPER" ] && _BE_SUPER="${SUPER_EMOJI:-$_BE_SUPER_DEF}"
 [ -z "$_BE_HOG" ] && _BE_HOG="${HOG_EMOJI:-$_BE_HOG_DEF}"
 [ -z "$_BE_IMPORT" ] && _BE_IMPORT="${IMPORT_EMOJI:-$_BE_IMPORT_DEF}"
 [ -z "$_BE_EXPORT" ] && _BE_EXPORT="${EXPORT_EMOJI:-$_BE_EXPORT_DEF}"
 [ -z "$_BE_CHECK" ] && _BE_CHECK="${CHECK_EMOJI:-$_BE_CHECK_DEF}"
+
+_goodEmoji() {
+  # Really just making sure emojis aren't terrible chars
+  local s="$1"
+  local exitCode=0
+
+  # Reject empty just in case
+  [[ -z "$s" ]] && exitCode=1
+
+  # Reject any whitespace
+  [[ "$s" == *[[:space:]]* ]] && exitCode=1
+
+  # Reject any ASCII control characters
+  LC_ALL=C printf '%s' "$s" | grep -q '[[:cntrl:]]' && exitCode=1
+
+  # Reject shell metacharacters
+  [[ "$s" == *[\`\"\'\\\$]* ]] && exitCode=1
+
+  # Reject long strings
+  [[ ${#s} -ge 3 ]] && exitCode=1
+
+  if [[ "$exitCode" == "1" ]]; then
+    echo "boomrc: ERROR: $s is an invalid emoji, ignoring..."
+  fi
+
+  return $exitCode
+}
+_goodEmoji "$_BE_BOOM" || _BE_BOOM="$_BE_BOOM_DEF"
+_goodEmoji "$_BE_HOLE" || _BE_HOLE="$_BE_HOLE_DEF"
+_goodEmoji "$_BE_BOT" || _BE_BOT="$_BE_BOT_DEF"
+_goodEmoji "$_BE_SUPER" || _BE_SUPER="$_BE_SUPER_DEF"
+_goodEmoji "$_BE_HOG" || _BE_HOG="$_BE_HOG_DEF"
+_goodEmoji "$_BE_IMPORT" || _BE_IMPORT="$_BE_IMPORT_DEF"
+_goodEmoji "$_BE_EXPORT" || _BE_EXPORT="$_BE_EXPORT_DEF"
+_goodEmoji "$_BE_CHECK" || _BE_CHECK="$_BE_CHECK_DEF"
+unset _goodEmoji
 
 ###Function bang
 # "\t${B}bang${N} [NUM]";
@@ -491,11 +537,11 @@ if [[ -n "$BOOMSTATTRACKING" && -z "$BOOMSITERUNNER" ]]; then
     echo -n " 0" >> $2 # quests complete 11
     echo -n " 0" >> $2 # empty imports 12
     echo -n " 0" >> $2 # longest boom hog streak 13
-    echo -n " 0" >> $2 # unused 14
-    echo -n " 0" >> $2 # unused 15
-    echo -n " 0" >> $2 # unused 16
-    echo -n " 0" >> $2 # unused 17
-    echo -n " 0" >> $2 # unused 18
+    echo -n " 0" >> $2 # times sourcing boomrc 14
+    echo -n " 0" >> $2 # poll votes 15
+    echo -n " 0" >> $2 # times running `[boom] chat` 16
+    echo -n " 0" >> $2 # times roasted 17
+    echo -n " 0" >> $2 # times mentioning others in chat 18
     echo -n " 0" >> $2 # unused 19
     echo -n " 0" >> $2 # unused 20
 
@@ -526,6 +572,7 @@ if [[ -n "$BOOMSTATTRACKING" && -z "$BOOMSITERUNNER" ]]; then
 
   _boomStatSet() {
     local file="$_boomStatTracker" user="$1" field="$2" value="$3"
+    [[ -w "$file" ]] || return 1
     local tmp="$(mktemp --tmpdir="${file%/*}" ".${file##*/}.tmp.XXX")" || return 1
 
     (
@@ -543,6 +590,7 @@ if [[ -n "$BOOMSTATTRACKING" && -z "$BOOMSITERUNNER" ]]; then
   }
   _boomStatInc() {
     local file="$_boomStatTracker" user="$1" field="$2" delta="${3:-1}"
+    [[ -w "$file" ]] || return 1
     local tmp="$(mktemp --tmpdir="${file%/*}" ".${file##*/}.tmp.XXX")" || return 1
 
     (
@@ -560,6 +608,7 @@ if [[ -n "$BOOMSTATTRACKING" && -z "$BOOMSITERUNNER" ]]; then
   }
   _boomStatComp() {
     local file="$_boomStatTracker" user="$1" field="$2" value="$3"
+    [[ -w "$file" ]] || return 1
     local tmp="$(mktemp --tmpdir="${file%/*}" ".${file##*/}.tmp.XXX")" || return 1
 
     (
@@ -603,27 +652,33 @@ fi
 
 # Set up site config env based on current env
 if [[ -z "$DOOMBOOM" && -z "$BOOMSITERUNNER" && -w "/$BOOMUSERDIR/$BOOMBOSS/$BOOMINSTALL/.boomserver/data/env/" ]]; then
+  boomSiteUserJson=/$BOOMUSERDIR/$BOOMBOSS/$BOOMINSTALL/.boomserver/data/env/$USER.json
+  tmp="$(mktemp --tmpdir="${boomSiteUserJson%/*}" ".${boomSiteUserJson##*/}.tmp.XXX")"
+
   echo "{ \"columns\": \"${BOOMTABLECOLS:-$(cat $_boomUsers | xargs)}\"," \
-    > /$BOOMUSERDIR/$BOOMBOSS/$BOOMINSTALL/.boomserver/data/env/$USER.json
+    > $tmp
   echo "  \"boom_emoji\": \"${_BE_BOOM}\"," \
-    >> /$BOOMUSERDIR/$BOOMBOSS/$BOOMINSTALL/.boomserver/data/env/$USER.json
+    >> $tmp
   echo "  \"hole_emoji\": \"${_BE_HOLE}\"," \
-    >> /$BOOMUSERDIR/$BOOMBOSS/$BOOMINSTALL/.boomserver/data/env/$USER.json
+    >> $tmp
   echo "  \"bot_emoji\": \"${_BE_BOT}\"," \
-    >> /$BOOMUSERDIR/$BOOMBOSS/$BOOMINSTALL/.boomserver/data/env/$USER.json
+    >> $tmp
   echo "  \"super_emoji\": \"${_BE_SUPER}\"," \
-    >> /$BOOMUSERDIR/$BOOMBOSS/$BOOMINSTALL/.boomserver/data/env/$USER.json
+    >> $tmp
   echo "  \"hog_emoji\": \"${_BE_HOG}\"," \
-    >> /$BOOMUSERDIR/$BOOMBOSS/$BOOMINSTALL/.boomserver/data/env/$USER.json
+    >> $tmp
   echo "  \"import_emoji\": \"${_BE_IMPORT}\"," \
-    >> /$BOOMUSERDIR/$BOOMBOSS/$BOOMINSTALL/.boomserver/data/env/$USER.json
+    >> $tmp
   echo "  \"export_emoji\": \"${_BE_EXPORT}\"," \
-    >> /$BOOMUSERDIR/$BOOMBOSS/$BOOMINSTALL/.boomserver/data/env/$USER.json
+    >> $tmp
   echo "  \"check_emoji\": \"${_BE_CHECK}\"," \
-    >> /$BOOMUSERDIR/$BOOMBOSS/$BOOMINSTALL/.boomserver/data/env/$USER.json
+    >> $tmp
   echo "  \"ignore_holiday_emojis\": \"${NOBOOMHOLIDAY+true}\" }" \
-    >> /$BOOMUSERDIR/$BOOMBOSS/$BOOMINSTALL/.boomserver/data/env/$USER.json
-  chmod 644 /$BOOMUSERDIR/$BOOMBOSS/$BOOMINSTALL/.boomserver/data/env/$USER.json &>/dev/null
+    >> $tmp
+
+  \mv $tmp $boomSiteUserJson &>/dev/null
+  \chmod 644 /$BOOMUSERDIR/$BOOMBOSS/$BOOMINSTALL/.boomserver/data/env/$USER.json &>/dev/null
+  unset boomSiteUserJson tmp
 fi
 
 _boommeter() {
@@ -876,7 +931,7 @@ boommeter() {
     declare -f _boombarenv &>/dev/null && _boombarenv LASTBOOM $score $1 2>/dev/null
     if [[ "$1" =~ ^[^!/.[\"\']+$ ]]; then
       _boomlog $1 $score
-      term=$1
+      term=${1//\\}
     else return; fi
   elif [[ "$1" == "_bot" ]]; then term="${@:2}"
   else term="$@"
@@ -892,8 +947,8 @@ boommeter() {
   if ! $logrun; then
     echo "$USER's ranking it on the boom meter! $term gets $score big boom$([ $score -gt 1 ] && echo s)! $result" >> $_boommeterLog
   fi
-  if [[ ! "$1" =~ "/" && -f "$_boomRankings" ]]; then
-    local exists=$(sed -ne "/^ $1 /p" $_boomRankings)
+  if [[ ! "$term" =~ "/" && -f "$_boomRankings" ]]; then
+    local exists=$(sed -ne "/^ $term /p" $_boomRankings)
     if [ -n "$exists" ]; then _boomavg $term; fi
   fi
   if $logrun && [[ -f "$_boomStreak" ]]; then _boomhog $term; fi
@@ -943,15 +998,16 @@ boomavg() {
 }
 
 _boomlog() {
-  if [[ "$1" =~ [!./[\"\']+ ]]; then return; fi # Extra filter to be safe (for a while this was singlehandedly saving us)
-  if [ ! -f "$_boomRankings" ]; then echo " $1 $2" > $_boomRankings; \chmod 644 $_boomRankings &>/dev/null; return; fi
-  local exists=$(sed -ne "/^ $1 /p" $_boomRankings)
+  local cmd=${1//\\}
+  if [[ "$cmd" =~ [!./[\"\']+ ]]; then return; fi # Extra filter to be safe (for a while this was singlehandedly saving us)
+  if [ ! -f "$_boomRankings" ]; then echo " $cmd $2" > $_boomRankings; \chmod 644 $_boomRankings &>/dev/null; return; fi
+  local exists=$(sed -ne "/^ $cmd /p" $_boomRankings)
   if [ -n "$exists" ]; then
-    sed -i "/^ $1 / s|$| $2|" $_boomRankings
+    sed -i "/^ $cmd / s|$| $2|" $_boomRankings
   else
-    sed -i "$ a \ $1 $2" $_boomRankings
+    sed -i "$ a \ $cmd $2" $_boomRankings
   fi
-  echo $USER boomed $1 for $2 boom$([ $2 -gt 1 ] && echo s)${3:+ on $3}! >> $_boomUserLog
+  echo $USER boomed $cmd for $2 boom$([ $2 -gt 1 ] && echo s)${3:+ on $3}! >> $_boomUserLog
 }
 _boomavg() {
   local sum count
@@ -1317,6 +1373,8 @@ boom() {
     elif [ -n "$mention" ]; then
       echo Could not notify $mention
     fi
+
+    [[ -n "$BOOMSTATTRACKING" && -n "$mention" ]] && _boomStatInc $USER 18
   }
   _update_and_print_chat() {
     lastchattested="${lastchattested//\\/\\\\\\}"
@@ -1482,7 +1540,7 @@ boom() {
           read -p "Really clear chat [y/N]? " respY
           if [[ ! " y yes yup fs " =~ " ${respY,,} " ]]; then return; fi
 
-          cat $_boommeterLog > $_boommeterLog-$(TZ=$BOOMTZ date -u +%s)
+          \cat $_boommeterLog > $_boommeterLog-$(TZ=$BOOMTZ date -u +%s)
           echo "$USER reset the boom chat" > $_boommeterLog
           #echo "$USER is testing resetting the boom chat" >> $_boommeterLog
 
@@ -1602,8 +1660,8 @@ boom() {
               echo -n $READLINE_LINE > $currfile
             fi
 
-            test ${#__chat_env_idxs[@]} -gt 0 || return
-            test $((__chat_env_idx-1))  -ge 0 || return
+            [ ${#__chat_env_idxs[@]} -gt 0 ] || return
+            [ $((__chat_env_idx-1))  -ge 0 ] || return
             echo -n "$((__chat_env_idx-1))" > $idxfile
 
             READLINE_LINE="${__chat_env_hist[$(cat $idxfile)]}"
@@ -1621,7 +1679,7 @@ boom() {
             done < $histfile
             __chat_env_idx=$(cat $idxfile)
 
-            if test $((__chat_env_idx+1)) -eq ${#__chat_env_idxs[@]}; then
+            if [ $((__chat_env_idx+1)) -eq ${#__chat_env_idxs[@]} ]; then
               echo -n "${#__chat_env_idxs[@]}" > $idxfile
 
               READLINE_LINE="$(cat $currfile 2>/dev/null)"
@@ -1629,7 +1687,7 @@ boom() {
 
               \rm $currfile &>/dev/null
               return
-            elif test $((__chat_env_idx+1)) -gt ${#__chat_env_idxs[@]}; then
+            elif [ $((__chat_env_idx+1)) -gt ${#__chat_env_idxs[@]} ]; then
               return
             fi
 
@@ -1678,7 +1736,7 @@ boom() {
             COMP_LINE="chat $curline"
             COMP_CWORD=$(( ${#COMP_WORDS[@]} - 1 ))
             COMP_POINT=${#COMP_LINE}
-            _chat chat ${cur:-''} $prev 2>/dev/null
+            _chat chat ${cur:-''} $prev _envcall_ 2>/dev/null
 
             # Handle special cases
             if [[ "$cur" =~ ^"@" ]]; then
@@ -1699,6 +1757,9 @@ boom() {
               local restofline="${READLINE_LINE#${curline}}"
               READLINE_LINE="$precomp${restofline}"
               READLINE_POINT=${#precomp}
+            elif [[ "$curline" =~ ^"vote" && ! "$cur" =~ ^"-" ]]; then
+              # Complete poll titles one word at a time
+              COMPREPLY=($(sed -e "s/ /--space--/g" -e "s/\"--space--\"/\" \"/g" -e "s/--space--[^\"]\+\"/ /g" -e "s/\"//g" <<<"${COMPREPLY[@]}"))
             fi
 
             # Build out hosts file to complete from for complete-hostname
@@ -1729,7 +1790,7 @@ boom() {
             elif [[ "$userInput" == "?" ]]; then
               boomdocs boom-chat
             elif [[ -z "$userInput" ]]; then continue
-            elif [[ "$userInput" =~ ^"env" ]]; then echo "   $_BE_BOT Trying to avoid env-ception here $_BE_BOT"; continue 
+            elif [[ "$userInput" =~ ^"env" ]]; then echo "   $_BE_BOT Trying to avoid env-ception here $_BE_BOT"; continue
             elif [[ "$userInput" =~ ^"/text" ]]; then
               _envcall_=yup chat /text ${userInput#/text}
               lastchattested="$(tail -n 1 $_boommeterLog)"
@@ -1737,6 +1798,11 @@ boom() {
             elif [[ "$userInput" =~ ^"/boomstoday" ]]; then
               boomstoday | sed -e 's|^|   boombot: '"$_BE_BOT"' |'
               chat /boomstoday ${userInput#/boomstoday}
+              lastchattested="$(tail -n 2 $_boommeterLog | head -n 1)"
+              _update_and_print_chat absolute
+            elif [[ "$userInput" =~ ^"vote" ]]; then
+              _update_and_print_chat absolute
+              chat vote ${userInput#vote} | sed -e 's|^|   |'
               lastchattested="$(tail -n 2 $_boommeterLog | head -n 1)"
               _update_and_print_chat absolute
             elif [[ "$userInput" != "exit" ]]; then
@@ -1750,7 +1816,7 @@ boom() {
           done
 
           \rm /tmp/.boomhostcompletion &>/dev/null
-          \rm /tmp/.pollenvcurrline-$USER &>/dev/null
+          \rm /tmp/.chatenvcurrline-$USER &>/dev/null
         ;;
         chat_timeout_)
           if [ $(($(TZ=$BOOMTZ date -u +%s)-$(cat $_boomTimeout | tail -n 1 | awk '{print $2}'))) -ge $_BOOMDEFAULTTIMEOUT ]; then
@@ -1763,6 +1829,9 @@ boom() {
               [ $served -le $_BOOMDEFAULTTIMEOUT ] && echo $user: $(($(($_BOOMDEFAULTTIMEOUT-$served))/60)) min left
             done < $_boomUsers
           fi
+        ;;
+        chat_vote_)
+          _boompoll vote ${@:3}
         ;;
         chat_help_)
           _chatHelpTxt
@@ -1804,6 +1873,7 @@ boom() {
           _chat_cmds ${@:2}
         ;;
       esac
+      [[ -n "$BOOMSTATTRACKING" ]] && _boomStatInc $USER 16
     ;;
     conf_)
       _boss() { [[ "$USER" == "$BOOMBOSS" ]] && return 0 || return 1; }
@@ -1937,17 +2007,24 @@ boom() {
     favorite_)
       local day
       local nofavor=
-      [[ -n "$BOOMNOWEEKENDFAV" && " 0 6 " =~ " $(date +%w) " ]] && nofavor=y
+      local curfav
+
+      [[ -n "$BOOMNOWEEKENDFAV" && " 5 6 0 " =~ " $(TZ=$BOOMTZ date +%w) " ]] && nofavor=y
+
       if [[ "$(TZ=$BOOMTZ date -d @$(stat -c %Y $_boomFavor) +%d)" == "$(TZ=$BOOMTZ date +%d)" && -z $nofavor ]]; then
-        local curfav=$(sed -n 1p $_boomFavor)
+        curfav=$(sed -n 1p $_boomFavor)
         echo $_BE_BOOM🏆 $curfav is BoomBot\'s favorite user today 🏆$_BE_BOOM
 
         day=tomorrow
-      elif [[ -n $nofavor || "5" == "$(date +%w)" ]]; then
-        local curfav=$(sed -n 1p $_boomFavor)
-        echo $_BE_BOOM🏆 $curfav is BoomBot\'s favorite user for the weekend 🏆$_BE_BOOM
-
-        day=Monday
+      elif [[ -n $nofavor ]]; then
+        if [[ "$(TZ=$BOOMTZ date -d @$(stat -c %Y $_boomFavor) +%d)" != "$(TZ=$BOOMTZ date +%d)" && "$(TZ=$BOOMTZ date +%w)" == "5" ]]; then
+          echo $_BE_BOOM🏆 nobody has boomed yet for the weekend 🏆$_BE_BOOM
+          day=today
+        else
+          curfav=$(sed -n 1p $_boomFavor)
+          echo $_BE_BOOM🏆 $curfav is BoomBot\'s favorite user for the weekend 🏆$_BE_BOOM
+          day=Monday
+        fi
       else
         echo "$_BE_BOOM🏆 nobody has boomed yet today 🏆$_BE_BOOM"
         day=today
@@ -2146,6 +2223,7 @@ boom() {
                    sed -e 's/^\[CIPHER\] //' \
                        -e 's/^\[EDITED\] /*/' \
                        -e 's/^\[ASCII\] //' \
+                       -e 's/^\[POLL .* -t \(.*\)/pollbot: 🗳️ Poll: \1/;/^pollbot:.*Poll:/ s/ - .*//' \
                        -e "s~\(.\{0,$((COLS/3-1))\}\).*~\1~" \
                        -e 's/\\/\\\\/g')
 
@@ -2766,6 +2844,7 @@ _chat_cmds() {
           else
             _chat_roast $USER >> $_boommeterLog
           fi
+          [[ -n "$BOOMSTATTRACKING" ]] && _boomStatInc $USER 17
         ;;
         /roast_BoomBot_) ;&
         /roast_boomBot_) ;&
@@ -2791,6 +2870,7 @@ _chat_cmds() {
           elif [[ "$random" == "$USER" ]]; then
             echo boombot: $_BE_BOT HA! $USER randomly roasts themselves! >> $_boommeterLog
           fi
+          [[ -n "$BOOMSTATTRACKING" ]] && _boomStatInc $random 17
         ;;
         /roast__)
           echo boombot: $_BE_BOT $USER can\'t even use /roast! >> $_boommeterLog
@@ -2810,6 +2890,7 @@ _chat_cmds() {
                 _chat_roast ${2#@} >> $_boommeterLog
               fi
             fi
+            [[ -n "$BOOMSTATTRACKING" ]] && _boomStatInc ${2#@} 17
           else
             echo boombot: $_BE_BOT $USER tried to roast $2! They don\'t even boom! >> $_boommeterLog
             echo $_BE_BOT BoomBot only roasts boomusers $_BE_BOT
@@ -3048,6 +3129,9 @@ _boom() {
   # Option completion exclusions
   [[ "$(date +%m)" != 12 ]] && options=("${options[@]//wrapped}")
 
+  # Suboption completion exclusions
+  [[ "${COMP_WORDS[1]}" == "poll" ]] && suboptions=("${suboptions[@]//env}")
+
   if [[ "$3" == "avg" && "3" == "${#COMP_WORDS[@]}" ]]; then
     COMPREPLY=($(compgen -W "$(grep -v '[{}]' $_boomRankings | awk '{print $1}')" -- $2));
   elif [[ "$3" == "total" && "${#COMP_WORDS[@]}" == "3" ]]; then
@@ -3062,12 +3146,17 @@ _boom() {
     # Reply with titles
     COMPREPLY=()
     local curr="${COMP_WORDS[@]:3}"
-    local pre="${COMP_WORDS[@]:3}"
+    curr="${curr//\"}"
+    local pre="$curr"
     pre="${pre//^*$2}"
 
     while IFS= read line; do
       [[ "$line" =~ " " ]] && line="${line//$pre/$2}"
-      COMPREPLY+=("$line")
+      if [[ "${#COMP_WORDS[@]}" == "4" ]]; then
+        COMPREPLY+=("\"$line\"")
+      else
+        COMPREPLY+=("$line")
+      fi
     done < <(awk -F' - ' '/\[POLL [0-9]+\]/ { sub(/.*-t /,""); print $1 }' $_boommeterLog | grep ^"$curr")
   elif [ "${#COMP_WORDS[@]}" == "2" ]; then
     COMPREPLY=($(compgen -W "${options[*]}" -- $2));
@@ -3094,6 +3183,27 @@ _chat() {
   if [[ "$DOOMBOOM" == "yes" ]]; then return; fi
   COMPREPLY=()
   if [[ "$2" =~ ^"-" ]]; then COMPREPLY=($(_chat_emoji $2)); return; fi
+  if [[ "${#COMP_WORDS[@]}" -ge "2" && "${COMP_WORDS[1]}" == "vote" ]]; then
+    if [[ "$2" =~ ^"-" ]]; then COMPREPLY=($(_chat_emoji $2)); return; fi
+
+    # Reply with titles
+    # This is unfortunately duplicated because of weirdness with multi-word compreplies when calling _boom
+    COMPREPLY=()
+    local curr="${COMP_WORDS[@]:2}"
+    curr="${curr//\"}"
+    local pre="$curr"
+    pre="${pre//^*$2}"
+
+    while IFS= read line; do
+      [[ "$line" =~ " " ]] && line="${line//$pre/$2}"
+      if [[ "${#COMP_WORDS[@]}" == "3" || "$4" == "_envcall_" ]]; then
+        COMPREPLY+=("\"$line\"")
+      else
+        COMPREPLY+=("$line")
+      fi
+    done < <(awk -F' - ' '/\[POLL [0-9]+\]/ { sub(/.*-t /,""); print $1 }' $_boommeterLog | grep ^"$curr")
+    return
+  fi
 
   if [[ " /timeout /total /roast /work /hype " =~ " $3 " && ("${#COMP_WORDS[@]}" == "3" || ("${#COMP_WORDS[@]}" == "4" && "${COMP_WORDS[1]}" == "cipher")) ]]; then
     local conditionals=()
@@ -3238,6 +3348,7 @@ if [ -r "/$BOOMUSERDIR/$BOOMBOSS/$BOOMRCS/.boompollrc" ]; then
   # Boom poll
   source /$BOOMUSERDIR/$BOOMBOSS/$BOOMRCS/.boompollrc
 fi
+[[ -n "$BOOMSTATTRACKING" && -w "$_boomStatTracker" && -z "$DOOMBOOM" ]] && _boomStatInc $USER 14
 
 # Next up
 #TODO: boom wrapped, boom goal, boom poll - patch 3.0.0

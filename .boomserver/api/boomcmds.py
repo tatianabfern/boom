@@ -103,12 +103,21 @@ async def refresh_results(api_key, command):
     os.environ['NOBOOMHOLIDAY'] = user_cfg.get('ignore_holiday_emojis', '')
 
     full_cmd = f'{CMDPREFIX}{command}"'
-    stdout, stderr = await run_cmd_async(full_cmd)
+    code = None
+
+    try:
+        stdout, stderr = await asyncio.wait_for(run_cmd_async(full_cmd), timeout=15.0)
+    except asyncio.TimeoutError:
+        stdout=""
+        stderr=f"Command \"{command}\" timed out server-side"
+        code = 503
 
     with cache_lock:
         latest_cmd_results[api_key][command] = {
             'output': ansi_to_html(stdout),
             'error':  stderr.splitlines(),
-            'timestamp': time.time()
+            'timestamp': time.time(),
+            'user': username,
+            'code': code
         }
 

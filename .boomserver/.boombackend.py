@@ -64,7 +64,7 @@ def run_simple_command(cmd):
             bc.active_api_keys.add(api_key)
 
         if cmd not in bc.cmd_list:
-            return jsonify(error=[f"\"{cmd}\" not in expected command list"]), 400
+            return jsonify(error=[f"\"{cmd}\" not in expected command list"], user=username), 400
 
         user_cache = {}
         timeout = 10
@@ -78,14 +78,16 @@ def run_simple_command(cmd):
             waited += .05
 
         if not user_cache:
-            return jsonify(error=[f"No cached result exists yet for {cmd} - hit timeout"]), 503
+            return jsonify(error=[f"No cached result exists yet for {cmd} - hit timeout"], user=username), 503
 
         if "error" in user_cache and user_cache["error"]:
-            return jsonify(user_cache), 500
+            code = 500
+            if user_cache["code"]: code = user_cache["code"]
+            return jsonify(user_cache), code
 
         return jsonify(user_cache)
     except Exception as e:
-        return jsonify(error=[str(e)]), 500
+        return jsonify(error=[str(e)], user=username), 500
 
 # Legacy code
 #@app.route('/run_command', methods=['POST'])
@@ -138,11 +140,11 @@ def run_boom_board_command():
             stderr.extend(data.get('error', []))
 
             if code >= 400:
-                return jsonify(output=stdout, error=stderr), code
+                return jsonify(output=stdout, error=stderr, user=username), code
 
-        return jsonify(output=stdout, error=stderr)
+        return jsonify(output=stdout, error=stderr, user=username)
     except Exception as e:
-        return jsonify(error=str(e)), 500
+        return jsonify(error=str(e), user=username), 500
 
 @app.route('/run_boom_patchnotes_current_command', methods=['POST'])
 def run_boom_patchnotes_current_command():
@@ -182,7 +184,8 @@ def read_file(filename, default_type = "log", lingering = False):
         full=full,
         actions=list(actions),
         order=[item["id"] for item in window],
-        hashes={item["id"]: item["hash"] for item in window} if len(actions) > 0 else {}
+        hashes={item["id"]: item["hash"] for item in window} if len(actions) > 0 else {},
+        user=username
     )
 
 @app.route('/read_log_file', methods=['POST'])

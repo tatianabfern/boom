@@ -8,11 +8,14 @@ USERS_JSON = "data/users.json"
 file_lock = Lock()
 
 def load_json(path):
-    with file_lock:
-        if not os.path.exists(path):
-            return {}
-        with open(path, "r") as f:
-            return json.load(f)
+    try:
+        with file_lock:
+            if not os.path.exists(path):
+                return {}
+            with open(path, "r") as f:
+                return json.load(f)
+    except json.decoder.JSONDecodeError:
+        return {}
 
 def save_json(path, data):
     with file_lock:
