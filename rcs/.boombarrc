@@ -156,7 +156,7 @@ _boombarenv() {
         export BOOMBAR_LASTUSERBOOM=ERR
         export BOOMBAR_BOOMFAV=ERR
       else
-        export BOOMBAR_LASTUSERBOOM=$(tail -n6 $_boomUserLog | grep boomed | tail -n 1)
+        export BOOMBAR_LASTUSERBOOM=$(tail -n10 $_boomUserLog | grep boomed | tail -n 1)
         export BOOMBAR_BOOMFAV=$(sed -ne '1p' $_boomFavor)
       fi
     ;;

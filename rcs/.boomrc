@@ -224,6 +224,7 @@
 # 2.8.19 - more robust handling for EPOCHSECONDS -- not relying on bash being 5.0+
 # 2.8.20 - bug fixes to support site logins - fixed board table cols bug and <user>.json generation
 # 2.8.21 - re-write custom emojis on each source to instantly reflect changes
+# 2.9.0  - chat /coinflip added with customizable coin sides!
 
 DOOMBOOM=
 if [ -z "$USER" ]; then
@@ -514,6 +515,29 @@ _boomSession=$_boomImports/.sessionlog
 _boomImportReady=$_boomImports/.import
 if [ ! -f $_boomSession ]; then echo -n "" > $_boomSession; \chmod 644 $_boomSession &>/dev/null; fi
 
+# BOOM goal
+_boomGoal=/$BOOMUSERDIR/$BOOMBOSS/$BOOMINSTALL/.boomgoal
+
+# Increment function
+_boomFileInc() {
+  local file="$1" user="$2" field="$3" delta="${4:-1}"
+  [[ -w "$file" ]] || return 1
+  local tmp="$(mktemp --tmpdir="${file%/*}" ".${file##*/}.tmp.XXX")" || return 1
+
+  (
+    flock -x 9
+
+    awk -v u="$user" -v f="$field" -v d="$delta" '
+      BEGIN { OFS=" " }
+      $1 == u { $f += d }
+      { print }
+    ' "$file" | sed 's/^[^ ]/ &/' > "$tmp" && \mv -f "$tmp" "$file"
+  ) 9<>"$file"
+
+  \rm -f "$tmp" 2>/dev/null
+  \chmod 777 "$file"
+}
+
 # BOOM stat tracking
 if [[ -n "$BOOMSTATTRACKING" && -z "$BOOMSITERUNNER" ]]; then
   statdir=/$BOOMUSERDIR/$BOOMBOSS/$BOOMINSTALL/wrapped
@@ -591,21 +615,7 @@ if [[ -n "$BOOMSTATTRACKING" && -z "$BOOMSITERUNNER" ]]; then
   }
   _boomStatInc() {
     local file="$_boomStatTracker" user="$1" field="$2" delta="${3:-1}"
-    [[ -w "$file" ]] || return 1
-    local tmp="$(mktemp --tmpdir="${file%/*}" ".${file##*/}.tmp.XXX")" || return 1
-
-    (
-      flock -x 9
-
-      awk -v u="$user" -v f="$field" -v d="$delta" '
-        BEGIN { OFS=" " }
-        $1 == u { $f += d }
-        { print }
-      ' "$file" | sed 's/^[^ ]/ &/' > "$tmp" && \mv -f "$tmp" "$file"
-    ) 9<>"$file"
-
-    \rm -f "$tmp" 2>/dev/null
-    \chmod 777 "$file"
+    _boomFileInc $file $user $field $delta
   }
   _boomStatComp() {
     local file="$_boomStatTracker" user="$1" field="$2" value="$3"
@@ -780,7 +790,7 @@ _boommeterrunner() {
     echo $cmd > $_boomTracker
 
     local boomrandomizer=$(( $RANDOM % 15 + 1 ))
-    [[ "$USER" == "$(sed -n 1p $_boomFavor)" ]] && boomrandomizer=$(( $RANDOM % 10 + 1 ))
+    [[ " everyone $USER " =~ " $(sed -n 1p $_boomFavor) " ]] && boomrandomizer=$(( $RANDOM % 10 + 1 ))
     if [ $boomrandomizer -eq 7 ]; then
       boommeter $cmd _log
       local deaddrought=$(cat $_boomDrought)
@@ -811,6 +821,12 @@ _boommeterrunner() {
             done
           done < <(sed -n "2s/ /\n/gp" $_boomFavor | \grep [a-z] | sort | uniq -c | sed -e 's/[8-9"]/8/' -e 's/\([0-9]\)\{2,\}/8/g') |
           xargs shuf -n1 -e)
+
+          if declare -f _boomgoal &>/dev/null && [[ ! "$(\cat $_boomGoal 2>/dev/null)" =~ "reshandled"$ ]]; then
+            local rewardstr=$(_boomgoal _reward_ 2>/dev/null)
+            [[ -n "$rewardstr" ]] && newfav="$rewardstr"
+          fi
+
           echo -e "$newfav\n $USER" > $_boomFavor
           [[ -n "$BOOMSTATTRACKING" ]] && _boomStatInc $newfav 4
           echo boombot: $_BE_BOT BoomBot\'s favorite user today is $newfav! >> $_boommeterLog
@@ -1009,6 +1025,7 @@ _boomlog() {
     sed -i "$ a \ $cmd $2" $_boomRankings
   fi
   echo $USER boomed $cmd for $2 boom$([ $2 -gt 1 ] && echo s)${3:+ on $3}! >> $_boomUserLog
+  declare -f _boomgoal &>/dev/null && _boomgoal _inc_ $2 2>/dev/null & disown # disown in case takes a while
 }
 _boomavg() {
   local sum count
@@ -1052,12 +1069,12 @@ _boomquest() {
     fi
   }
   if [ "$(cat $_boomQuest)" == "$(openssl dgst -sha256 <<<"$1" | awk '{print $2}')" ]; then
-    _rerollquest
+    _rerollquest & disown
     echo 2
     return
   fi
   if [ "$(TZ=$BOOMTZ date -d @$(stat -c %Y $_boomQuest) +%d)" != "$(TZ=$BOOMTZ date +%d)" ]; then
-    _rerollquest
+    _rerollquest & disown
     return
   fi
 }
@@ -1214,7 +1231,7 @@ alias boomhelp="_boomIntroTxt flag"
 # "\t\t${B}freq${N}\n\t\t\tsee and compare boom frequency for all commands randomly boomed by more than one person";
 # "\t\t${B}full${N}\n\t\t\tsee full chart of boom avgs and freqs including cmds only boomed by one user";
 # "\t\t${B}today${N}\n\t\t\tsee amount of booms each user has received today - same as \`chat /boomstoday\` but the output is sorted";
-# "\t\t${B}top${N}\n\t\t\tsee all-time top NUM (default 5) boomed commands for all users";
+# "\t\t${B}top${N} [NUM]\n\t\t\tsee all-time top NUM (default 5) boomed commands for all users";
 # "\t\t${B}help${N}\n\t\t\tshow boom board help";
 # "\t\tCMD\n\t\t\tsee avg and freq boards for specific CMD for all users";
 # "\t\t${B}-${N}\n\t\t\tuse this before listing input column order for the default board command";
@@ -1263,7 +1280,7 @@ alias boomhelp="_boomIntroTxt flag"
 ###ExcFunction _boom-drought-longest
 ###ExcFunction _boom-drought-rarity
 ###ExcFunction _boom-drought-rarity-fav
-# "\t${B}boom-drought${N} [${B}longest${N} | ${B}rarity${N}]";
+# "\t${B}boom-drought${N} [${B}longest${N} | ${B}rarity${N} [${B}fav${N}] [NUM]]";
 # "\t\tthe boom drought tracks how many unique commands have run since the last random boom";
 # "\t\tthe default boom drought behavior prints your current drought";
 # "\n\t\t${B}longest${N}\n\t\t\tsee the current longest boom drought";
@@ -1287,6 +1304,17 @@ alias boomhelp="_boomIntroTxt flag"
 # "\t\tBoomBot's favorite has the odds of a random boom slashed by 1/3!";
 # "\t\tget random booms to increase the odds of being the favorite tomorrow!";
 # "\t\tadd entries keyword to view current entries per user for tomorrow's drawing!";
+###
+###SubFunction _boom-goal
+###ExcFunction _boom-goal-init
+###ExcFunction _boom-goal-progress
+# "\t${B}boom-goal${N} [${B}init${N} | ${B}progress${N} [HEIGHT] | ${B}help${N}]";
+# "\t\tinitialize and view status of boom goals!";
+# "\t\tboom goals are dynamically set targets of booms collected through random command hits!";
+# "\t\tachieve the boom goal and BoomBot will choose everyone as its favorite for a day!";
+# "\n\t\t${B}init${N}\n\t\t\tadmin only - will initialize a new 7-14 day goal for the install, factoring in past pass/fail stats";
+# "\t\t${B}progress${N} [HEIGHT]\n\t\t\tview progress on most recent goal!\n\t\t\tHEIGHT positional arg changes height of goal display (default 20)";
+# "\t\t${B}help${N}\n\t\t\tshow boom goal help";
 ###
 ###SubFunction _boom-hall
 # "\t${B}boom-hall${N}\n\t\tdisplay all who have entered the hallowed hall of BOOM";
@@ -1357,7 +1385,7 @@ boom() {
     local mention=
     local user=
     if [[ "${@}" =~ "@" ]]; then
-      mention="$(echo ${@} | sed -ne 's/.*@\([a-z.]\+\).*/\1/p')"
+      mention="$(echo ${@} | sed -ne 's/.*@\([^ ]\+\).*/\1/p')"
     fi
     if [[ -n "$mention" && -w "/$BOOMUSERDIR/$mention/$BOOMINSTALL/.boomnotify" ]]; then
       echo $USER mentioned you in boom chat >> /$BOOMUSERDIR/$mention/$BOOMINSTALL/.boomnotify
@@ -1370,7 +1398,7 @@ boom() {
         fi
       done < $_boomUsers
     elif [[ "$mention" == "boombot" ]]; then
-      return
+      : # Ignore this but still count stat tracking
     elif [ -n "$mention" ]; then
       echo Could not notify $mention
     fi
@@ -1382,6 +1410,7 @@ boom() {
     lastchattested="${lastchattested//\[/\\[}"
     lastchattested="${lastchattested//\]/\\]}"
     lastchattested="${lastchattested//|/\\|}"
+    lastchattested="${lastchattested//\*/\\\*}"
     if [[ "$1" == "absolute" && ! "$lastchattested" =~ ^"^" ]]; then lastchattested="^$lastchattested$"; fi
     if [[ "$lastchatupdate" != "$(stat -c %Y $_boommeterLog)" ]]; then
       local flippedAscii asciiHandled=
@@ -1550,6 +1579,7 @@ boom() {
           done < $_boomUsers
         ;;
         chat_cipher_)
+          [[ -z "${@:3}" ]] && { echo fgnuJ ?avzbbo; return; }
           _chat_mentions ${@:3}
           echo "[CIPHER] $USER: $(echo -n "${@:3}" | sed -e "s/['"'"]//g' | xargs -n 1 | rev | xargs | tr '[A-Za-z0-9]' '[N-ZA-Mn-za-m3-90-2]')" >> $_boommeterLog
           if [[ " $@ " =~ " @boombot " && ! "${@:2}" =~ ^"/" ]]; then
@@ -2039,6 +2069,27 @@ boom() {
         ;;
       esac
     ;;
+    goal_)
+      # Implementation is in another file to de-complicate boomrc
+      if ! declare -f _boomgoal &>/dev/null; then
+        # We don't expect this to happen
+        echo Error: .boomgoalrc not found - _boomgoal is undefined
+        return
+      fi
+
+      case "goal_${2//_}_" in
+        goal_init_)
+          _boomgoal init
+        ;;
+        goal_progress_)
+          _boomgoal progress $3
+        ;;
+        goal_help_) ;&
+        goal_*_)
+          _boomgoal $2
+        ;;
+      esac
+    ;;
     hall_)
       echo $_BE_BOOM$_BE_BOOM$_BE_BOOM Those recorded below have achieved recognition in the hallowed hall of BOOM $_BE_BOOM$_BE_BOOM$_BE_BOOM;
       while read line; do
@@ -2277,7 +2328,7 @@ boom() {
 BOOMBOTMODE=no
 BOOMBOTPROMPT=' USER\033[00m@\033[1;34mHOSTNAME\033[00m PWD'
 BOOMBOTPROMPTCMD=
-_boombotprompt() { echo -e "$BOOMBOTPROMPT" | sed -e "s/HOSTNAME/$(hostname)/g" -e "s|PWD|$(pwd)|g" -e "s|/$BOOMUSERDIR/$USER|~|g" -e "s/USER/$(_boombotName)/g"; }
+_boombotprompt() { echo -e "$BOOMBOTPROMPT" | sed -e "s/HOSTNAME/$HOSTNAME/g" -e "s|PWD|$(pwd)|g" -e "s|/$BOOMUSERDIR/$USER|~|g" -e "s/USER/$(_boombotName)/g"; }
 boombot() {
   case "$1_" in
     conf_) ;&
@@ -2442,6 +2493,7 @@ _chatHelpTxt() {
   echo /help - BoomBot will print this!
   echo /ascii {FILE \| delete \| rules} - BoomBot will let you print ascii FILE to chat - run /ascii rules for more info!
   echo /boomstoday - BoomBot will print a breakdown of how many random booms each user has received today!
+  echo /coinflip [HEADS] [TAILS] - CoinBot will flip a coin and select between HEADS and TAILS!
   echo /hype PERSON - BoomBot will hype up \(\"boombot\" \| \"me\" \| \"random\"\) or any \"\<boomusername\>\"!
   echo /joke - BoomBot will tell a joke in chat!
   echo /meter THING - BoomBot will rank THING on the boom meter!
@@ -2760,6 +2812,25 @@ _chat_cmds() {
           $(echo Somebody $target BoomBot | xargs shuf -n1 -e) needs to boom today! >> $_boommeterLog
       fi
     ;;
+    /coinflip_all_)
+      local result=$((RANDOM % 2))
+      [[ "$((RANDOM % 6000))" == "69" ]] && result=2 # odds of landing on the side
+
+      local msg
+      case "$result" in
+        0)
+          msg="It's ${2:-heads}"
+        ;;
+        1)
+          msg="It's ${3:-tails}"
+        ;;
+        2)
+          msg="WOW! It landed on its side!"
+        ;;
+      esac
+
+      echo "coinbot: 🪙 $msg" >> $_boommeterLog
+    ;;
     /corecarl_all_) # not in help
       local hour=$(TZ=$BOOMTZ date +%H)
       if [[ ${hour#0} -lt 15 && ${hour#0} -ge 9 ]]; then
@@ -2830,7 +2901,7 @@ _chat_cmds() {
       if [[ "$2" == "fav" ]]; then evalarg=3; odds=10; fi
       if [[ "${!evalarg}" =~ ^[0-9]+$ ]]; then
         echo boombot: $_BE_BOT $(_drought_rarity ${!evalarg} $odds) >> $_boommeterLog
-      elif [[ "$USER" == "$(sed -n 1p $_boomFavor)" ]]; then
+      elif [[ " everyone $USER " =~ " $(sed -n 1p $_boomFavor) " ]]; then
         echo boombot: $_BE_BOT $(_drought_rarity $(cat $_boomDrought) 10 | sed "s/A/$USER's/") >> $_boommeterLog
       else
         echo boombot: $_BE_BOT $(_drought_rarity $(cat $_boomDrought) | sed "s/A/$USER's/") >> $_boommeterLog
@@ -2865,6 +2936,7 @@ _chat_cmds() {
             if [[ "$random" != "$USER" ]]; then
               echo $USER: /roast $USER \(Revenge! $_BE_BOT\) >> $_boommeterLog
               _chat_roast $USER >> $_boommeterLog
+              [[ -n "$BOOMSTATTRACKING" ]] && _boomStatInc $USER 17
             else
               echo boombot: $_BE_BOT BoomBot can\'t even enact revenge... >> $_boommeterLog
             fi
@@ -3348,6 +3420,10 @@ fi
 if [ -r "/$BOOMUSERDIR/$BOOMBOSS/$BOOMRCS/.boompollrc" ]; then
   # Boom poll
   source /$BOOMUSERDIR/$BOOMBOSS/$BOOMRCS/.boompollrc
+fi
+if [ -r "/$BOOMUSERDIR/$BOOMBOSS/$BOOMRCS/.boomgoalrc" ]; then
+  # Boom goal
+  source /$BOOMUSERDIR/$BOOMBOSS/$BOOMRCS/.boomgoalrc
 fi
 [[ -n "$BOOMSTATTRACKING" && -w "$_boomStatTracker" && -z "$DOOMBOOM" ]] && _boomStatInc $USER 14
 

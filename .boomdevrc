@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 
 ###Function boomdev
-# "\t${B}boomdev${N} <cmd> <opts>";
+# "\t${B}boomdev${N} <cmd>";
 # "\t\tcommand to simplify the boom development workflow";
-# "\t\tuse options below in place of <cmd> <opts>";
+# "\t\tuse options below in place of <cmd>";
 # "";
 # "$(bash -l -c "BOOMCFGFILE=$BOOMCFGFILE _boomrcman _boomdev-.*")";
 # "\t\t${B}help${N}\n\t\t\tprints this help message";

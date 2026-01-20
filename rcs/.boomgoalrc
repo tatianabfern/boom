@@ -154,16 +154,17 @@ _boomgoal_blackbox() {
 }
 
 _boomgoal_printer() {
-  # _boomgoal_printer CURR GOAL [TUBE_H]
+  # _boomgoal_printer CURR GOAL END [TUBE_H]
 
   ### Initialize variables ###
   local curr goal height tube_w emoji_cols min_l_pad
   local percent disp_percent filled_rows inner_cols
-  local tube_cols tube_left lines tube_h y0 cols
+  local tube_cols tube_left lines tube_h y0 cols end
 
   curr=$1
   goal=$2
-  tube_h=${3:-20}
+  end=$3
+  tube_h=${4:-20}
   (( tube_h >= 3 )) || { echo boomgoal: ERROR: Goal bar height must be 3 or greater; return 1; }
 
   tube_w=4
@@ -247,9 +248,9 @@ _boomgoal_printer() {
     tput clear
 
     # Title
-    title="BOOM GOAL"
+    title="BOOM GOAL - DUE $(TZ=$BOOMTZ date -d "@$end" "+%b %d")"
     xy "$title_y" $(( tube_left + (tube_cols - ${#title}) / 2 ))
-    tput bold; c 3; printf "%s" "$title"; tput sgr0
+    tput bold; c 3; printf "%s" "${title^^}"; tput sgr0
 
     # Percent complete
     prog=$(printf "Progress: %'d / %'d booms (%d%%)" "$curr" "$goal" "$disp_percent")
@@ -302,7 +303,7 @@ _boomgoal_printer() {
     local i row
     for ((i=0; i<filled_rows; i++)); do
       row=$(( tube_bottom - i ))
-      draw_tube_contents "$row" "💥"
+      draw_tube_contents "$row" "$_BE_BOOM"
 
       # Draw spark that explodes bombs
       xy "$row" "$spark_col"; c 2; printf "✨"; tput sgr0
@@ -310,10 +311,15 @@ _boomgoal_printer() {
       xy "$row" "$spark_col"; printf " "
     done
 
+    local epochsecs=${EPOCHSECONDS:-$(TZ=$BOOMTZ date +%s)}
     if (( percent >= 100 )); then
-      local msg="GOAL HIT! 🎉💥🎉"
+      local msg="GOAL HIT! 🎉$_BE_BOOM🎉"
       xy "$goal_y" $(( tube_left + (tube_cols - ${#msg}) / 2 ))
       tput bold; c 2; printf "%s" "$msg"; tput sgr0
+    elif (( epochsecs >= end )); then
+      local msg="GOAL MISSED $_BE_HOLE"
+      xy "$goal_y" $(( tube_left + (tube_cols - ${#msg}) / 2 ))
+      tput bold; c 1; printf "%s" "$msg"; tput sgr0
     fi
 
     read -rsn1
@@ -321,46 +327,150 @@ _boomgoal_printer() {
 }
 
 _boomgoal() {
+  local curr goal k ema end
+
   _boom_goal_inited() { [[ -n "$_boomGoal" && -w "$_boomGoal" ]]; }
   _boom_goal_active() {
-    # awk goal file for end timestamp
-    # if old, return 1
-    :
+    _boom_goal_inited || return 1
+    local epochsecs=${EPOCHSECONDS:-$(TZ=$BOOMTZ date +%s)}
+
+    _boom_goal_parse || return 1
+    if [[ "$epochsecs" -lt "$end" ]]; then
+      return 0
+    else
+      return 1
+    fi
   }
   _admin() { [[ " $BOOMADMINS " =~ " $USER " ]]; }
+  _boom_goal_parse() {
+    # Parse goal file
+    _boom_goal_inited || return 1
+    local _ # ignore "reshandled"
+    read -r curr goal k ema end _ < <(\cat $_boomGoal)
+  }
 
   # Silently support help
   if [[ "$1" == "help" ]]; then boomdocs boom-goal; return; fi
 
-  if ! _admin; then
-    if ! _boom_goal_inited; then
-      echo $_BE_BOT Ask an admin \($BOOMADMINS\) to run \`boom goal init\`!
-      return
-    fi
-    if ! _boom_goal_active; then
-      echo $_BE_BOT Ask an admin \($BOOMADMINS\) to start the next goal!
-      return
-    fi
-  else
-    if ! _boom_goal_inited; then
-      echo $_BE_BOT Run \`boom goal init\` to set a new goal!
-      return
-    fi
-    if ! _boom_goal_active; then
-      echo $_BE_BOT Run \`boom goal init\` to start the next goal!
-      return
-    fi
-  fi
+  case "_$1_" in
+    _init_)
+      if _admin; then
+        if ! _boom_goal_inited; then
+          echo 0 $(_boomgoal_blackbox 1.00 .80 0 0) > $_boomGoal
+          \chmod 777 $_boomGoal
+          echo $_BE_BOT Successfully initialized goal!
+          echo $_BE_BOOM🌡️$_BE_BOOM $USER initialized the boom goal! $_BE_BOOM🌡️$_BE_BOOM >> $_boomUserLog
+        else
+          _boom_goal_parse || { echo boomgoal: ERROR: Unable to parse goal file; return 1; }
+          if [[ ! "$(\cat $_boomGoal 2>/dev/null)" =~ "reshandled"$ ]]; then
+            echo $_BE_BOT Wait until the last goal\'s reward has been handled!
+            return
+          fi
 
-  # Case statement with:
-  # init
-  # progress
-  # some form of _log run where flock to write bangs to file to call from _boommeter
-  #   - can print to user log when approaching milestones and when goal re-roll is available
-  # query run during fav re-roll to see if inactive and if so did pass?
-  #   - support everyone is favorite today on favorite side
+          if ! _boom_goal_active; then
+            echo 0 $(_boomgoal_blackbox $k $ema $goal $curr) > $_boomGoal
+            \chmod 777 $_boomGoal
+            echo $_BE_BOT Started new goal!
+            echo $_BE_BOOM🌡️$_BE_BOOM $USER started a new boom goal! $_BE_BOOM🌡️$_BE_BOOM >> $_boomUserLog
+          else
+            echo $_BE_BOT Can\'t init a goal while another goal is active!
+          fi
+        fi
+      else
+        echo $_BE_BOT Only admins can init the goal!
+      fi
+    ;;
+    _progress_)
+      if ! _boom_goal_inited; then
+        echo $_BE_BOT The goal has not been initialized!
+      else
+        _boom_goal_parse || { echo boomgoal: ERROR: Unable to parse goal file; return 1; }
+        _boomgoal_printer $curr $goal $end $2
+      fi
+    ;;
+    __inc__)
+      [[ -z "$2" ]] && return
+      _boom_goal_active 2>/dev/null || return
+      _boom_goal_parse 2>/dev/null || return
+      _boomFileInc "$_boomGoal" "$curr" 1 $2 || return
 
-  #_boomgoal_blackbox 1.00 .8 0 0
-  _boomgoal_printer 700 1000
+      local oldcurr=$curr
+      _boom_goal_parse 2>/dev/null || return
+      command -v bc &>/dev/null || return
+
+      local pct=$(bc -l <<<"scale=2; $curr/$goal*100")
+      local oldpct=$(bc -l <<<"scale=2; $oldcurr/$goal*100")
+      oldpct=${oldpct%.*}
+      pct=${pct%.*}
+
+      checkMilestone() {
+        local milestone=$1
+
+        if (( oldpct < milestone )) && (( pct >= milestone )); then
+          if (( milestone == 100 )); then
+            echo $_BE_BOOM🌡️$_BE_BOOM everyone just completed the boom goal! $_BE_BOOM🌡️$_BE_BOOM >> $_boomUserLog
+          else
+            echo $_BE_BOOM🌡️$_BE_BOOM everyone just hit $milestone% of the boom goal! $_BE_BOOM🌡️$_BE_BOOM >> $_boomUserLog
+          fi
+        fi
+      }
+
+      checkMilestone 25  2>/dev/null
+      checkMilestone 50  2>/dev/null
+      checkMilestone 75  2>/dev/null
+      checkMilestone 90  2>/dev/null
+      checkMilestone 100 2>/dev/null
+      unset checkMilestone &>/dev/null
+    ;;
+    __reward__)
+      _boom_goal_inited || return 1
+      _boom_goal_active && return 1
+      _boom_goal_parse  || return 1
+
+      # Boom goal is inactive and inited
+      if [[ "$(wc -w <$_boomGoal)" == "5" ]]; then
+        # Result hasn't yet been handled
+        if (( $curr >= $goal )); then
+          echo everyone
+          echo $_BE_BOOM🌡️$_BE_BOOM everyone achieved the boom goal! $_BE_BOOM🌡️$_BE_BOOM >> $_boomUserLog
+        else
+          echo nobody
+          echo $_BE_HOLE🌡️$_BE_HOLE everyone failed the boom goal... $_BE_HOLE🌡️$_BE_HOLE >> $_boomUserLog
+        fi
+        echo $(\cat $_boomGoal 2>/dev/null) reshandled > $_boomGoal
+        \chmod 777 $_boomGoal 2>/dev/null
+        return 0
+      else
+        return 0
+      fi
+    ;;
+    __)
+      if ! _admin; then
+        if ! _boom_goal_inited; then
+          echo $_BE_BOT Ask an admin \($BOOMADMINS\) to run \`boom goal init\`!
+          return
+        fi
+        if ! _boom_goal_active; then
+          echo $_BE_BOT Ask an admin \($BOOMADMINS\) to start the next goal!
+          return
+        fi
+      else
+        if ! _boom_goal_inited; then
+          echo $_BE_BOT Run \`boom goal init\` to get a new goal!
+          return
+        fi
+        if ! _boom_goal_active; then
+          echo $_BE_BOT Run \`boom goal init\` to start the next goal!
+          return
+        fi
+      fi
+
+      echo $_BE_BOT Run \`boom goal progress\` to see goal status!
+    ;;
+    *)
+      echo -e "Error: option \"$2\" not found"
+      boomdocs boom-goal
+    ;;
+  esac
 }
 

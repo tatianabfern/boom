@@ -92,7 +92,7 @@ Uninstallation is very straightforward. To uninstall all files created outside o
 
 
 ## Docs
-The below boomdocs output was generated as of patch 2.8.21:
+The below boomdocs output was generated as of patch 2.9.0:
 
 ```text
 Commands in the .boomrc suite:
@@ -162,7 +162,7 @@ Commands in the .boomrc suite:
 				see full chart of boom avgs and freqs including cmds only boomed by one user
 			today
 				see amount of booms each user has received today - same as `chat /boomstoday` but the output is sorted
-			top
+			top [NUM]
 				see all-time top NUM (default 5) boomed commands for all users
 			help
 				show boom board help
@@ -204,7 +204,7 @@ Commands in the .boomrc suite:
 				see `chat help` for valid <cmd> values!
 		conf
 			view configuration options and commands for the boom suite!
-		drought [longest | rarity]
+		drought [longest | rarity [fav] [NUM]]
 			the boom drought tracks how many unique commands have run since the last random boom
 			the default boom drought behavior prints your current drought
 	
@@ -226,6 +226,18 @@ Commands in the .boomrc suite:
 			BoomBot's favorite has the odds of a random boom slashed by 1/3!
 			get random booms to increase the odds of being the favorite tomorrow!
 			add entries keyword to view current entries per user for tomorrow's drawing!
+		goal [init | progress [HEIGHT] | help]
+			initialize and view status of boom goals!
+			boom goals are dynamically set targets of booms collected through random command hits!
+			achieve the boom goal and BoomBot will choose everyone as its favorite for a day!
+	
+			init
+				admin only - will initialize a new 7-14 day goal for the install, factoring in past pass/fail stats
+			progress [HEIGHT]
+				view progress on most recent goal!
+				HEIGHT positional arg changes height of goal display (default 20)
+			help
+				show boom goal help
 		hall
 			display all who have entered the hallowed hall of BOOM
 		latest
@@ -321,9 +333,10 @@ Commands in the .boomrc suite:
 ```
 
 ## Patch Notes
-The below patchnotes output was generated as of patch 2.8.21:
+The below patchnotes output was generated as of patch 2.9.0:
 
 ```text
+# 2.9.0  - chat /coinflip added with customizable coin sides!
 # 2.8.21 - re-write custom emojis on each source to instantly reflect changes
 # 2.8.20 - bug fixes to support site logins - fixed board table cols bug and <user>.json generation
 # 2.8.19 - more robust handling for EPOCHSECONDS -- not relying on bash being 5.0+

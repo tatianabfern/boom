@@ -725,6 +725,7 @@ function renderLogItem(payload) {
     else if (/.* \w+ is on course for a drought/g.test(line)) replaceUsername(3);
     else if (/.* \w+ imported \d boom.* from/g.test(line)) replaceUsername(1);
     else if (/.* \w+ is chaining boom imports/g.test(line)) replaceUsername(1);
+    else if (/.* \w+ boom goal[!.]+ /g.test(line)) replaceUsername(1);
 
     wordElements.forEach(el => lineElement.appendChild(el));
     return lineElement;
@@ -744,7 +745,9 @@ function renderChatItem(payload) {
 
         usernameElement = document.createElement('span');
 
-        if (username.toLowerCase().includes('boombot') || username.toLowerCase().includes('pollbot')) {
+        if (username.toLowerCase().includes('boombot') ||
+            username.toLowerCase().includes('pollbot') ||
+            username.toLowerCase().includes('coinbot')) {
             usernameElement.className = 'username-bot';
         } else if (username === boomFavUsername || username === "*" + boomFavUsername) {
             usernameElement.className = 'username-fav';
