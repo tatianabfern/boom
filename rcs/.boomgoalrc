@@ -160,11 +160,16 @@ _boomgoal_printer() {
   local curr goal height tube_w emoji_cols min_l_pad
   local percent disp_percent filled_rows inner_cols
   local tube_cols tube_left lines tube_h y0 cols end
+  local pct_each extra_bombs max_h
 
   curr=$1
   goal=$2
   end=$3
   tube_h=${4:-20}
+
+  lines="$(tput lines)"
+  max_h=$(( lines - 8 > 1 ? lines - 8 : 1 ))
+  [[ "$tube_h" == "fill" ]] && tube_h=$max_h
   (( tube_h >= 3 )) || { echo boomgoal: ERROR: Goal bar height must be 3 or greater; return 1; }
 
   tube_w=4
@@ -176,6 +181,11 @@ _boomgoal_printer() {
   (( percent > 100 )) && percent=100
 
   filled_rows=$(( percent * tube_h / 100 ))
+  pct_each=$(bc <<<"scale=2; 100/$tube_h/$tube_w") # percent represented by each boom
+  extra_bombs=$(bc <<<"scale=2; (${percent}-$pct_each*$filled_rows*$tube_w)/$pct_each") # extra bombs to blow in current row
+  extra_bombs=$(bc <<<"scale=0; $extra_bombs/1") # floor
+  (( extra_bombs > tube_w )) && extra_bombs=$tube_w
+  (( extra_bombs < 0 )) && extra_bombs=0
   inner_cols=$(( tube_w * emoji_cols ))
 
   cols="$(tput cols)"
@@ -185,11 +195,10 @@ _boomgoal_printer() {
 
   (( tube_left < min_l_pad )) && tube_left=$min_l_pad
 
-  lines="$(tput lines)"
   height=$(( tube_h + 7 ))
   if (( lines < height + 1 )); then
     echo "boomgoal: ERROR: Terminal too small ($lines lines). Need at least $((height+1)) lines (tube height=$tube_h)"
-    echo "                 Run with HEIGHT arg <= $(( lines - 8 > 1 ? lines - 8 : 1 )) or resize terminal to show full tube"
+    echo "                 Run with HEIGHT arg <= $max_h or \"fill\" to show largest possible tube"
     return 1
   fi
 
@@ -234,11 +243,12 @@ _boomgoal_printer() {
   # Big helpers
   draw_tube_contents() {
     local row="$1" emoji="$2" out="" i
+    local iterations=${3:-tube_w}
 
     xy "$row" "$fill_left"
     c 1
 
-    for ((i=0; i<$tube_w; i++)); do out+="$emoji"; done
+    for ((i=0; i<$iterations; i++)); do out+="$emoji"; done
     printf "%s" "$out"; tput sgr0
   }
 
@@ -300,7 +310,7 @@ _boomgoal_printer() {
     draw_starting_tube
 
     # Explode the bombs according to progress
-    local i row
+    local i row currrow
     for ((i=0; i<filled_rows; i++)); do
       row=$(( tube_bottom - i ))
       draw_tube_contents "$row" "$_BE_BOOM"
@@ -310,6 +320,16 @@ _boomgoal_printer() {
       sleep 0.03
       xy "$row" "$spark_col"; printf " "
     done
+
+    if (( extra_bombs > 0 )); then
+      # Draw in partial progress
+      currrow=$((tube_bottom - filled_rows))
+      draw_tube_contents "$currrow" "$_BE_BOOM" "$extra_bombs"
+
+      xy "$currrow" "$spark_col"; c 2; printf "✨"; tput sgr0
+      sleep 0.03
+      xy "$currrow" "$spark_col"; printf " "
+    fi
 
     local epochsecs=${EPOCHSECONDS:-$(TZ=$BOOMTZ date +%s)}
     if (( percent >= 100 )); then
@@ -386,6 +406,19 @@ _boomgoal() {
       else
         _boom_goal_parse || { echo boomgoal: ERROR: Unable to parse goal file; return 1; }
         _boomgoal_printer $curr $goal $end $2
+      fi
+    ;;
+    _stats_)
+      if ! _boom_goal_inited; then
+        echo $_BE_BOT The goal has not been initialized!
+      else
+        _boom_goal_parse || { echo boomgoal: ERROR: Unable to parse goal file; return 1; }
+        local pct=$((curr*100/goal))
+
+        echo "$_BE_BOOM$_BE_BOOM Boom Goal $_BE_BOOM$_BE_BOOM"
+        echo "$_BE_BOOM  Due: $(TZ=$BOOMTZ date -d "@$end" "+%b %d")"
+        echo "$_BE_BOOM  Progress: $curr / $goal booms ($pct%)"
+        echo "$_BE_BOOM$_BE_BOOM $( (( pct >= 100 )) && echo "Well done!" || echo "Good luck!") $_BE_BOOM$_BE_BOOM"
       fi
     ;;
     __inc__)
@@ -468,7 +501,7 @@ _boomgoal() {
       echo $_BE_BOT Run \`boom goal progress\` to see goal status!
     ;;
     *)
-      echo -e "Error: option \"$2\" not found"
+      echo -e "Error: option \"$1\" not found"
       boomdocs boom-goal
     ;;
   esac

@@ -280,7 +280,10 @@ _checkForBoomImports() {
       fi
       if [[ $ranks -gt 0 ]]; then
         filesboomed=$(($filesboomed+1))
-        [[ -n "$BOOMSTATTRACKING" ]] && _boomStatInc $USER 8 $ranks
+        if [[ -n "$BOOMSTATTRACKING" ]]; then
+          _boomStatInc $USER 8 $ranks
+          _boomStatComp $USER 19 $ranks
+        fi
       fi
       rm $filename
     done

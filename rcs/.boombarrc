@@ -152,7 +152,7 @@ _boombarenv() {
     ;;
     BOOMUSERINFO)
       # Call with BOOMUSERINFO
-      if [[ ! -r $_boomUserLog || ! -r $_boomFavor ]]; then 
+      if [[ ! -r $_boomUserLog || ! -r $_boomFavor ]]; then
         export BOOMBAR_LASTUSERBOOM=ERR
         export BOOMBAR_BOOMFAV=ERR
       else
@@ -356,6 +356,7 @@ _boombarupdaterunner() {
   local boomnotify
   while :; do
     if [ ! -f "$BOOMBARCONTENTFILE" ]; then boombar exit; break; fi
+    if [ ! -e "$BOOMBAR_TTY" ]; then boombar exit; break; fi
 
     boomnotify="$(tail -n 1 $_boomNotify 2>/dev/null)"
     if [[ -n "$boomnotify" ]]; then
@@ -364,7 +365,8 @@ _boombarupdaterunner() {
       BOOMBAR_PREFIX="$startupprefix"
     fi
 
-    if ! _in_altscreen && [[ -f $_doomTracker && "$(cat $_doomTracker)" != "yes" ]]; then
+    if ! _in_altscreen && [[ -f $_doomTracker && "$(cat $_doomTracker)" != "yes" ]] &&
+       [[ ! "$(\cat $BOOMBARCONTENTFILE 2>/dev/null)" =~ ^"manuallystashed" ]]; then
       printf '\0337' # save the cursor location
         printf '\033[%d;%dr' 0 "$((LINES - 1))" # set the scrollable region (margin)
       printf '\0338' # reset the cursor location
@@ -381,7 +383,7 @@ _boombarupdaterunner() {
     else
       local currstate="$(cat $BOOMBARCONTENTFILE 2>/dev/null)"
 
-      if [[ ! "$currstate" =~ ^"stashed" ]]; then
+      if [[ ! "$currstate" =~ ^"stashed" && ! "$currstate" =~ ^"manuallystashed" ]]; then
         printf '\0337' # save the cursor location
           printf '\033[%d;%dr' 0 "$LINES" # reset the scrollable region (margin)
           printf '\033[%d;%dH' "$LINES" 0 # move cursor to the bottom line
@@ -405,6 +407,14 @@ _boombar() {
   fi
 }
 complete -F _boombar boombar
+
+# Dev functions to stash bar if drawing in alt screen
+_stashBoombar() {
+  [[ -n "$BOOMBARSTATE" ]] && echo -n "manuallystashed$(\cat $BOOMBARCONTENTFILE 2>/dev/null)" > $BOOMBARCONTENTFILE
+}
+_unstashBoombar() {
+  [[ -n "$BOOMBARSTATE" ]] && sed -i 's/^manuallystashed//' $BOOMBARCONTENTFILE
+}
 
 # Reset state on source
 [[ -n "$BOOMBARSTATE" ]] && boombar exit

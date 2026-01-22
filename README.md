@@ -92,7 +92,7 @@ Uninstallation is very straightforward. To uninstall all files created outside o
 
 
 ## Docs
-The below boomdocs output was generated as of patch 2.9.0:
+The below boomdocs output was generated as of patch 2.9.2:
 
 ```text
 Commands in the .boomrc suite:
@@ -226,16 +226,19 @@ Commands in the .boomrc suite:
 			BoomBot's favorite has the odds of a random boom slashed by 1/3!
 			get random booms to increase the odds of being the favorite tomorrow!
 			add entries keyword to view current entries per user for tomorrow's drawing!
-		goal [init | progress [HEIGHT] | help]
+		goal [init | progress [fill | HEIGHT] | stats | help]
 			initialize and view status of boom goals!
 			boom goals are dynamically set targets of booms collected through random command hits!
 			achieve the boom goal and BoomBot will choose everyone as its favorite for a day!
 	
 			init
 				admin only - will initialize a new 7-14 day goal for the install, factoring in past pass/fail stats
-			progress [HEIGHT]
-				view progress on most recent goal!
+			progress [fill | HEIGHT]
+				view animated progress toward most recent goal!
 				HEIGHT positional arg changes height of goal display (default 20)
+				fill positional arg automatically sets HEIGHT to its max
+			stats
+				show brief summary of goal progress directly in terminal
 			help
 				show boom goal help
 		hall
@@ -333,9 +336,11 @@ Commands in the .boomrc suite:
 ```
 
 ## Patch Notes
-The below patchnotes output was generated as of patch 2.9.0:
+The below patchnotes output was generated as of patch 2.9.2:
 
 ```text
+# 2.9.2  - finally de-duplicate chat completion - boom calls chat's completion function
+# 2.9.1  - exit bar if tty dies and add ascii rules to boom conf
 # 2.9.0  - chat /coinflip added with customizable coin sides!
 # 2.8.21 - re-write custom emojis on each source to instantly reflect changes
 # 2.8.20 - bug fixes to support site logins - fixed board table cols bug and <user>.json generation

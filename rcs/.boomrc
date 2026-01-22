@@ -225,6 +225,8 @@
 # 2.8.20 - bug fixes to support site logins - fixed board table cols bug and <user>.json generation
 # 2.8.21 - re-write custom emojis on each source to instantly reflect changes
 # 2.9.0  - chat /coinflip added with customizable coin sides!
+# 2.9.1  - exit bar if tty dies and add ascii rules to boom conf
+# 2.9.2  - finally de-duplicate chat completion - boom calls chat's completion function
 
 DOOMBOOM=
 if [ -z "$USER" ]; then
@@ -307,6 +309,8 @@ BOOMPREV_HISTCMD=$HISTCMD # int currrent cmd num in history
 [[ -z "$_BOOMDEFAULTTIMEOUT" ]] && readonly _BOOMDEFAULTTIMEOUT=900 &>/dev/null
 
 readonly BOOM_MAGICPROMPT='\#' &>/dev/null
+readonly BOOM_MAXASCIILINES=${BOOM_MAXASCIILINES:-34} &>/dev/null
+readonly BOOM_MAXASCIICOLS=${BOOM_MAXASCIICOLS:-57} &>/dev/null
 _boomcmdno() {
   # All builtins
   # Deciding to quietly support pre-4.4 here despite increased bug likelihood - install still "requires" newer bash
@@ -566,7 +570,7 @@ if [[ -n "$BOOMSTATTRACKING" && -z "$BOOMSITERUNNER" ]]; then
     echo -n " 0" >> $2 # times running `[boom] chat` 16
     echo -n " 0" >> $2 # times roasted 17
     echo -n " 0" >> $2 # times mentioning others in chat 18
-    echo -n " 0" >> $2 # unused 19
+    echo -n " 0" >> $2 # largest import 19
     echo -n " 0" >> $2 # unused 20
 
     local topcmds=$(sort -k2 -nr <(while read line; do
@@ -946,6 +950,7 @@ boommeter() {
   local term
   if $logrun; then
     declare -f _boombarenv &>/dev/null && _boombarenv LASTBOOM $score $1 2>/dev/null
+    declare -f _boomgoal &>/dev/null && _boomgoal _inc_ $score 2>/dev/null & disown # disown in case takes a while
     if [[ "$1" =~ ^[^!/.[\"\']+$ ]]; then
       _boomlog $1 $score
       term=${1//\\}
@@ -1025,7 +1030,6 @@ _boomlog() {
     sed -i "$ a \ $cmd $2" $_boomRankings
   fi
   echo $USER boomed $cmd for $2 boom$([ $2 -gt 1 ] && echo s)${3:+ on $3}! >> $_boomUserLog
-  declare -f _boomgoal &>/dev/null && _boomgoal _inc_ $2 2>/dev/null & disown # disown in case takes a while
 }
 _boomavg() {
   local sum count
@@ -1308,12 +1312,16 @@ alias boomhelp="_boomIntroTxt flag"
 ###SubFunction _boom-goal
 ###ExcFunction _boom-goal-init
 ###ExcFunction _boom-goal-progress
-# "\t${B}boom-goal${N} [${B}init${N} | ${B}progress${N} [HEIGHT] | ${B}help${N}]";
+###ExcFunction _boom-goal-stats
+# "\t${B}boom-goal${N} [${B}init${N} | ${B}progress${N} [${B}fill${N} | HEIGHT] | ${B}stats${N} | ${B}help${N}]";
 # "\t\tinitialize and view status of boom goals!";
 # "\t\tboom goals are dynamically set targets of booms collected through random command hits!";
 # "\t\tachieve the boom goal and BoomBot will choose everyone as its favorite for a day!";
 # "\n\t\t${B}init${N}\n\t\t\tadmin only - will initialize a new 7-14 day goal for the install, factoring in past pass/fail stats";
-# "\t\t${B}progress${N} [HEIGHT]\n\t\t\tview progress on most recent goal!\n\t\t\tHEIGHT positional arg changes height of goal display (default 20)";
+# "\t\t${B}progress${N} [${B}fill${N} | HEIGHT]\n\t\t\tview animated progress toward most recent goal!";
+# "\t\t\tHEIGHT positional arg changes height of goal display (default 20)";
+# "\t\t\tfill positional arg automatically sets HEIGHT to its max";
+# "\t\t${B}stats${N}\n\t\t\tshow brief summary of goal progress directly in terminal";
 # "\t\t${B}help${N}\n\t\t\tshow boom goal help";
 ###
 ###SubFunction _boom-hall
@@ -1434,7 +1442,7 @@ boom() {
           asciiHandled=
           echo "   $line"
         fi
-      done < <(tac $_boommeterLog | sed "\|$lastchattested|q" | tac | tail -n +2 | sed -e 's|^\[EDITED\] |*|' -e 's|^\[CIPHER\] ||')
+      done < <(tac $_boommeterLog | sed "\|$lastchattested|q" | tac | tail -n +2 | sed -e 's|^\[EDITED\] |*|' -e 's|^\[CIPHER\] ||' | tail -n $((BOOM_MAXASCIILINES+1))) # limited in case of bug
       lastchatupdate=$(stat -c %Y $_boommeterLog)
       lastchattested="$(tail -n 1 $_boommeterLog)"
     fi
@@ -1750,8 +1758,10 @@ boom() {
             echo "0 notinitialized" > $hostfile
             unset HOSTFILE # clear any already-read hosts
             HOSTFILE=$hostfile \
-            read -e -p ' > ' && printf '%s' "$REPLY"
-            rm $hostfile &>/dev/null
+            read -e -p ' > ' || return $?
+
+            printf '%s' "$REPLY"
+            \rm $hostfile &>/dev/null
           }
           __chat_env_comp() {
             local curline="${READLINE_LINE:0:$READLINE_POINT}" # save current line up to cursor
@@ -1803,7 +1813,10 @@ boom() {
           }
           #while read -p " > " userInput; do # old non-completed method
           while :; do
-            userInput=$(_chat_env_read_with_completion) # must be in subshell so bind/histfile things don't break env
+            if ! userInput=$(_chat_env_read_with_completion); then # must be in subshell so bind/histfile things don't break env
+              echo exit # exit when ^D or read failure
+              break
+            fi
             _update_and_print_chat absolute
 
             if [[ -n "$userInput" ]]; then
@@ -1935,6 +1948,10 @@ boom() {
       _boss && echo \# Set this to enable stat tracking for yearly \`boom wrapped\` information!
       _boss && echo \# This is set by default in the boom cfg generation on install
       _boss && echo BOOMSTATTRACKING=$BOOMSTATTRACKING
+      _boss && echo
+      _boss && echo \# Set these to change default line/column limits for ascii
+      _boss && echo BOOM_MAXASCIILINES=${BOOM_MAXASCIILINES:-34}
+      _boss && echo BOOM_MAXASCIICOLS=${BOOM_MAXASCIICOLS:-57}
       _boss && echo
       echo Optional user-defined variables to set before source:
       _boss && echo \# To globally change default user-defined vars, set them in the BOOMCFGFILE!
@@ -2082,7 +2099,17 @@ boom() {
           _boomgoal init
         ;;
         goal_progress_)
-          _boomgoal progress $3
+          # Ensure boombar integration
+          declare -f _stashBoombar &>/dev/null && _stashBoombar
+          if [[ "$3" =~ ^[0-9]+$ || "$3" == "fill" || -z "$3" ]]; then
+            _boomgoal progress $3
+          else
+            echo boomgoal: ERROR: \"$3\" is an invalid arg to progress
+          fi
+          declare -f _unstashBoombar &>/dev/null && _unstashBoombar
+        ;;
+        goal_stats_)
+          _boomgoal stats
         ;;
         goal_help_) ;&
         goal_*_)
@@ -2350,7 +2377,7 @@ boombot() {
       boomdocs boombot
     ;;
   esac
-} 
+}
 _boombot() {
   if [[ " $@ " =~ " manual " && "$AUTOBOOMBOT" == "yes" ]]; then export AUTOBOOMBOT=no; fi
   if [[ "$DOOMBOOM" == "yes" ]]; then echo bash: boombot: command not found; return; fi
@@ -2726,7 +2753,7 @@ _chat_cmds() {
   [[ -n "$BOOMSTATTRACKING" ]] && _boomStatInc $USER 6
   case /${cmd}_${flag}_ in
     /ascii_all_)
-      local maxlinechars=57 maxlines=35
+      local maxlinechars=${BOOM_MAXASCIICOLS} maxlines=${BOOM_MAXASCIILINES}
 
       case "/ascii_$2_" in
         /ascii_delete_)
@@ -3147,53 +3174,27 @@ alias boomstoday='while IFS= read line; do echo "$line"; done < <(boom board tod
 # Completion
 _boom() {
   if [[ "$DOOMBOOM" == "yes" ]]; then return; fi
-  if [[ " /timeout /total /roast /work /hype " =~ " $3 " && " ${COMP_WORDS[1]} " =~ " chat " && ("${#COMP_WORDS[@]}" == "4" || ("${#COMP_WORDS[@]}" == "5" && "${COMP_WORDS[2]}" == "cipher")) ]]; then
-    local conditionals=()
-    if [[  " /total " == " $3 " ]]; then conditionals+=($(echo -n all)); fi
-    if [[  " /roast /hype " =~ " $3 " ]]; then conditionals+=($(echo -n random)); fi
-    COMPREPLY=($(compgen -W "${conditionals[@]} me boombot $(cat $_boomUsers)" -- ${2}));
-    if [[ "$2" =~ ^"@" ]]; then
-      COMPREPLY=($(compgen -W "$(sed -e 's/^ /@/' $_boomUsers) @boombot" -- ${2}));
-      return
-    fi
-    return
-  elif [[ " /rarity " =~ " $3 " && " ${COMP_WORDS[1]} " =~ " chat " && ("${#COMP_WORDS[@]}" == "4" || ("${#COMP_WORDS[@]}" == "5" && "${COMP_WORDS[2]}" == "cipher")) ]]; then
-    # Doing it like this so we can just fill out conditionals per command as the list expands
-    local conditionals=()
-    if [[  " /rarity " == " $3 " ]]; then conditionals+=($(echo -n fav)); fi
-    COMPREPLY=($(compgen -W "${conditionals[@]}" -- ${2}));
-  fi
-  if [[ "$2" =~ ^"@" && " ${COMP_WORDS[1]} " =~ " chat " ]]; then
-    COMPREPLY=($(compgen -W "$(sed -e 's/^ /@/' $_boomUsers) @everyone @boombot" -- ${2}));
-    return
-  fi
-  if [[ "$2" =~ ^"/" && " ${COMP_WORDS[1]} " =~ " chat " && ("${#COMP_WORDS[@]}" == "3" || ("${#COMP_WORDS[@]}" == "4" && "$3" == "cipher")) ]]; then
-    local cmdoptions=($(declare -f _chat_cmds | sed -ne '/^\s.*)$/ s/\s*\(.*\)_all_)/\1/p' | grep -v [*_]))
-    local adminoptions=($(declare -f _chat_cmds | sed -ne '/^\s.*)$/ s/\s*\(.*\)_admin_)/\1/p' | grep -v [*_]))
-    if [[ ! " $BOOMADMINS " =~ " $USER " ]]; then
-      adminoptions=()
-    fi
-    COMPREPLY=($(compgen -W "${cmdoptions[*]} ${adminoptions[*]}" -- ${2}));
+
+  # Chat completion is in _chat function
+  if [[ "${COMP_WORDS[1]}" == "chat" && "${#COMP_WORDS[@]}" -ge "3" ]]; then
+    # Acting like the command is `chat`
+    local curline="${COMP_LINE:0:$COMP_POINT}" # save current line up to cursor
+    curline="${curline#boom}"
+    curline="${curline# }"
+
+    local cur="${curline##* }" # save current word
+    local prev="${curline% *}"
+    [[ "$prev" =~ " " ]] && prev="${prev##* }" # save previous word
+
+    # Trick chat completion to complete for us - this de-duplicates chat completion work
+    COMP_WORDS=($(echo "$curline"))
+    [[ -z "$cur" ]] && COMP_WORDS+=('')
+    COMP_LINE="$curline"
+    COMP_CWORD=$(( ${#COMP_WORDS[@]} - 1 ))
+    COMP_POINT=${#COMP_LINE}
+    _chat chat ${cur:-''} ${prev:-''} 2>/dev/null
     return
   fi
-  if [[ " /ascii " =~ " $3 " && "${#COMP_WORDS[@]}" == "4" && " ${COMP_WORDS[1]} " =~ " chat " ]]; then
-    compopt -o default
-    if [[ -d "/$BOOMUSERDIR/$USER/ascii" ]]; then
-      local asciis=($(\ls -1 /$BOOMUSERDIR/$USER/ascii))
-      local asciiopts=($(declare -f _chat_cmds | sed -ne '/^\s.*)$/ s/\s*\/ascii_\(.*\)_)/\1/p' | grep -v [*_] | grep -v '\(all\)'))
-      COMPREPLY=($(compgen -W "${asciis[*]} ${asciiopts[*]}" -- $2))
-    fi
-    return
-  fi
-  if [[ "edit" == "${COMP_WORDS[2]}" && " 4 5 " =~ " ${#COMP_WORDS[@]} " && " ${COMP_WORDS[1]} " =~ " chat " ]]; then
-    if [[ "${#COMP_WORDS[@]}" == "4" ]]; then
-      COMPREPLY=($(compgen -W "$(sed -ne '/^\(\[EDITED\] \)\{0,1\}'"$USER"': /s|\(\[EDITED\] \)\{0,1\}\(.*\)|\2|p' $_boommeterLog | tail -n 1 | sed -e 's/'"$USER"': //')" -- $2))
-    elif [[ "${#COMP_WORDS[@]}" == "5" ]]; then
-      COMPREPLY=($(compgen -W "$3" -- $2))
-    fi
-    return
-  fi
-  if [[ "$2" =~ ^"-" && " chat " =~ " ${COMP_WORDS[1]} " ]]; then COMPREPLY=($(_chat_emoji $2)); return; fi
 
   local options suboptions
   options=($(declare -f boom | sed -ne '/^\s.*)$/ s/\s*\(.*\)_)/\1/p' | grep -v [*_]))
@@ -3211,6 +3212,8 @@ _boom() {
     COMPREPLY=($(compgen -W "$(cat $_boomUsers) all" -- $2));
   elif [[ "${COMP_WORDS[1]}" == "drought" && "$3" == "rarity" && "${#COMP_WORDS[@]}" == "4" ]]; then
     COMPREPLY=($(compgen -W "fav" -- $2));
+  elif [[ "${COMP_WORDS[1]}" == "goal" && "$3" == "progress" && "${#COMP_WORDS[@]}" == "4" ]]; then
+    COMPREPLY=($(compgen -W "fill" -- $2));
   elif [[ "${COMP_WORDS[1]}" == "poll" && "${#COMP_WORDS[@]}" -ge "4" ]]; then
     # Only title complete for print/vote
     if [[ ! " print vote " =~ " ${COMP_WORDS[2]} " ]]; then return; fi
@@ -3450,7 +3453,6 @@ fi
 #TODO: assess additional args with boomssh/exec
 #TODO: use more shell builtins for optimization - $EPOCHSECONDS instead of some dates, $BASH_REMATCH instead of some seds
 #TODO: maybe reward if X+ booms are imported at once to make up for missing super boom milestones (25 multiples)
-#TODO: de-duplicate chat completion by calling _boom with current args similiar to magic alias function - maybe just change args checked by if called with chat or boom
 #TODO: Only persist doom if doom command is run? Currently, we persist when an error happens but notify user if automatically doomed
 #TODO: Consistently silently support help for currently unsupported `boom CMDs`
 
