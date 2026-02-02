@@ -227,6 +227,8 @@
 # 2.9.0  - chat /coinflip added with customizable coin sides!
 # 2.9.1  - exit bar if tty dies and add ascii rules to boom conf
 # 2.9.2  - finally de-duplicate chat completion - boom calls chat's completion function
+# 2.9.3  - completion cleanup - chat edit should auto-add backslashes outside of env
+# 2.9.4  - boom admins/migrate commands added
 
 DOOMBOOM=
 if [ -z "$USER" ]; then
@@ -250,6 +252,11 @@ if [[ "$USER" =~ " " ]]; then
   echo boomrc: ERROR: Usernames with spaces will break the boom. Please do not source with a username containing a space.
   DOOMBOOM=yes
 fi
+if [[ $- == *f* ]]; then
+  echo boomrc: ERROR: Shell globbing needs to be on for the boom to function.
+  DOOMBOOM=yes
+fi
+
 
 # Multiple ways to have BOOMCFGFILE set:
 #   - Have users source file that sets it and then sources this (recommended)
@@ -521,6 +528,7 @@ if [ ! -f $_boomSession ]; then echo -n "" > $_boomSession; \chmod 644 $_boomSes
 
 # BOOM goal
 _boomGoal=/$BOOMUSERDIR/$BOOMBOSS/$BOOMINSTALL/.boomgoal
+_boomGoalContrib=/$BOOMUSERDIR/$BOOMBOSS/$BOOMINSTALL/.boomgoalcontributors
 
 # Increment function
 _boomFileInc() {
@@ -571,14 +579,24 @@ if [[ -n "$BOOMSTATTRACKING" && -z "$BOOMSITERUNNER" ]]; then
     echo -n " 0" >> $2 # times roasted 17
     echo -n " 0" >> $2 # times mentioning others in chat 18
     echo -n " 0" >> $2 # largest import 19
-    echo -n " 0" >> $2 # unused 20
+    echo -n " 0" >> $2 # polls created 20
+    echo -n " 0" >> $2 # unused 21
+    echo -n " 0" >> $2 # unused 22
+    echo -n " 0" >> $2 # unused 23
+    echo -n " 0" >> $2 # unused 24
+    echo -n " 0" >> $2 # unused 25
+    echo -n " 0" >> $2 # unused 26
+    echo -n " 0" >> $2 # unused 27
+    echo -n " 0" >> $2 # unused 28
+    echo -n " 0" >> $2 # unused 29
+    echo -n " 0" >> $2 # unused 30
 
     local topcmds=$(sort -k2 -nr <(while read line; do
                                      echo -n "$(echo "$line" | awk '{print $2}') ";
                                      echo $(($(wc -w < <(echo $line))-2));
                                    done < <(cat $rankfile | awk '{words = gsub(/ /, " ", $0); print words " " $0}' | sort -nr | head -n 10)) |
                     sed -e 's/ /;/' | xargs | sed 's/ /|/g')
-    echo " $topcmds" >> $2 # top commands at start of year 21
+    echo " $topcmds" >> $2 # top commands at start of year 31
   }
 
   # Create new statfile if new year
@@ -1219,6 +1237,10 @@ alias boomhelp="_boomIntroTxt flag"
 # "\t${B}boom-avg${N} [CMD]";
 # "\t\truns boomavg with optional CMD arg";
 ###
+###SubFunction _boom-admins
+# "\t${B}boom-admins${N}";
+# "\t\tlists information about the install's admins and admin capabilities";
+###
 ###SubFunction _boom-board
 ###ExcFunction _boom-board-avg
 ###ExcFunction _boom-board-drought
@@ -1321,7 +1343,7 @@ alias boomhelp="_boomIntroTxt flag"
 # "\t\t${B}progress${N} [${B}fill${N} | HEIGHT]\n\t\t\tview animated progress toward most recent goal!";
 # "\t\t\tHEIGHT positional arg changes height of goal display (default 20)";
 # "\t\t\tfill positional arg automatically sets HEIGHT to its max";
-# "\t\t${B}stats${N}\n\t\t\tshow brief summary of goal progress directly in terminal";
+# "\t\t${B}stats${N}\n\t\t\tshow brief summary of goal progress and contributors directly in terminal";
 # "\t\t${B}help${N}\n\t\t\tshow boom goal help";
 ###
 ###SubFunction _boom-hall
@@ -1333,6 +1355,10 @@ alias boomhelp="_boomIntroTxt flag"
 ###SubFunction _boom-meter
 # "\t${B}boom-meter${N} THING\n\t\truns boommeter on THING";
 ###
+###SubFunction _boom-migrate
+# "\t${B}boom-migrate${N} BOOMUSER NEWUSERNAME";
+# "\t\tadmin only - migrate boom user install files from BOOMUSER to NEWUSERNAME";
+###
 ###SubFunction _boom-patchnotes
 ###ExcFunction _boom-patchnotes-latest
 ###ExcFunction _boom-patchnotes-full
@@ -1342,13 +1368,16 @@ alias boomhelp="_boomIntroTxt flag"
 ###
 ###SubFunction _boom-poll
 ###ExcFunction _boom-poll-create
+###ExcFunction _boom-poll-edit
 ###ExcFunction _boom-poll-list
 ###ExcFunction _boom-poll-print
 ###ExcFunction _boom-poll-vote
-# "\t${B}boom-poll${N} [${B}create${N} | ${B}list${N} | ${B}print${N} [TITLE] | ${B}vote${N} [TITLE] | ${B}help${N}]";
-# "\t\tcreate, vote on, and view chat polls for all boomusers";
+# "\t${B}boom-poll${N} [${B}create${N} | ${B}edit${N} [TITLE] | ${B}list${N} | ${B}print${N} [TITLE] | ${B}vote${N} [TITLE] | ${B}help${N}]";
+# "\t\tcreate, vote on, edit, and view chat polls for all boomusers";
 # "\t\twill run list by default, or:";
 # "\n\t\t${B}create${N}\n\t\t\tenter an environment to build a poll to put in chat - env commands are displayed with \`?\`";
+# "\t\t${B}edit${N} [TITLE]\n\t\t\tedit most recent poll or poll described by TITLE\n\t\t\tpolls can be edited by the submitting user if no users have yet voted";
+# "\t\t\tTITLE will complete in cmd line with chat emoji completion available";
 # "\t\t${B}list${N}\n\t\t\tlist all polls found in the current chat session, as well as vote counts and expiration dates";
 # "\t\t${B}print${N} [TITLE]\n\t\t\tprint out most recent poll or poll described by TITLE";
 # "\t\t\tTITLE will complete in cmd line with chat emoji completion available";
@@ -1414,7 +1443,7 @@ boom() {
     [[ -n "$BOOMSTATTRACKING" && -n "$mention" ]] && _boomStatInc $USER 18
   }
   _update_and_print_chat() {
-    lastchattested="${lastchattested//\\/\\\\\\}"
+    lastchattested="${lastchattested//\\/\\\\}"
     lastchattested="${lastchattested//\[/\\[}"
     lastchattested="${lastchattested//\]/\\]}"
     lastchattested="${lastchattested//|/\\|}"
@@ -1449,6 +1478,17 @@ boom() {
   }
 
   case "$1_" in
+    admins_)
+      echo $(bang 2) Boom Admin Info $(bang 2)
+      echo $(bang) Boss: $BOOMBOSS
+      echo $(bang) Admin\(s\): $BOOMADMINS
+      echo $(bang)
+      echo $(bang) Only admins can run the following:
+      echo $(bang) \`chat /timeout\` - time out users
+      echo $(bang) \`boom goal init\` - start a new boom goal
+      echo $(bang) \`boom migrate\` - transfer a user\'s files to new username
+      echo $(bang 13)
+    ;;
     avg_)
       boomavg ${@:2}
     ;;
@@ -1457,7 +1497,7 @@ boom() {
       local userList=$(<$_boomUsers)
       local userDR=$(<$_boomDroughtRecord)
 
-      if [[ $# -ge 3 && " $(echo $userList | xargs) " =~ " $3 " ]]; then
+      if [[ $# -ge 3 && " $(echo $userList | xargs) " =~ " $3 " ]] || [[ "$3" =~ ^[0-9]+$ && " $(echo $userList | xargs) " =~ " $4 " && "$2" == "top" ]]; then
         userList=$(for word in ${@:3}; do sed -n "/^ $word$/p" $_boomUsers; done)
         userDR=$(for word in ${@:3}; do sed -n "/^ $word /p" $_boomDroughtRecord; done)
       elif [ -n "$BOOMTABLECOLS" ]; then
@@ -1620,24 +1660,25 @@ boom() {
         chat_edit_)
           # I'm sorry for this mess
           if [[ "$#" != "4" ]]; then echo Expects \`chat edit FIND REPLACE\` with one word args; return; fi
-          local lastline=($(sed -ne '/^\(\[EDITED\] \)\{0,1\}'"$USER"': /s|\(\[EDITED\] \)\{0,1\}\(.*\)|\2|p' $_boommeterLog | tail -n 1))
+          local lastline=($(sed -ne '/^\(\[EDITED\] \)\{0,1\}'"$USER"': /s|\(\[EDITED\] \)\{0,1\}\(.*\)|\2|p' $_boommeterLog | tail -n 1 | sed -e 's/\*/\\*/g'))
+          local curr="${3//\*/\\\*}"
 
           # Handle mentions
           local notifile
-          if [[ "$3" =~ ^"@" ]]; then
-            notifile=/$BOOMUSERDIR/${3#@}/$BOOMINSTALL/.boomnotify
+          if [[ "$curr" =~ ^"@" ]]; then
+            notifile=/$BOOMUSERDIR/${curr#@}/$BOOMINSTALL/.boomnotify
             [ -n "$(cat $notifile)" ] && echo -n "" > $notifile
           fi
 
           local prevwords=()
           local word found respY
-          for word in ${lastline[@]:1}; do
-            if [[ " $word " == " $3 " ]]; then
+          for word in "${lastline[@]:1}"; do
+            if [[ " $word " == " $curr " ]]; then
               found=yes
               if [ $(sed -ne '\|^\(\[EDITED\] \)\{0,1\}'"$USER"':  \?'"${lastline[*]:1}"'$|p' $_boommeterLog | wc -l) -gt 1 ]; then echo Error: More than one line matches the previous chat - cannot edit; return; fi
-              read -p "$(sed -ne '\|^\(\[EDITED\] \)\{0,1\}'"$USER"':  \?'"${lastline[*]:1}"'$|s|\[EDITED\] ||;\|^\(\[EDITED\] \)\{0,1\}'"$USER"':  \?'"${lastline[*]:1}"'$|s|\('"${prevwords[*]}"'\) '"$3"'|\1 '"$4"'|p' $_boommeterLog) -- look right [y/N]? " respY
+              read -p "$(sed -ne '\|^\(\[EDITED\] \)\{0,1\}'"$USER"':  \?'"${lastline[*]:1}"'$|s|\[EDITED\] ||;\|^\(\[EDITED\] \)\{0,1\}'"$USER"':  \?'"${lastline[*]:1}"'$|s|\('"${prevwords[*]}"'\) '"$curr"'|\1 '"$4"'|p' $_boommeterLog) -- look right [y/N]? " respY
               if [[ " y yes yup fs " =~ " ${respY,,} " ]]; then
-                sed -i '\|^\(\[EDITED\] \)\{0,1\}'"$USER"':  \?'"${lastline[*]:1}"'$|s|\[EDITED\] ||;\|^\(\[EDITED\] \)\{0,1\}'"$USER"':  \?'"${lastline[*]:1}"'$|s|\('"$USER"': '"${prevwords[*]:+${prevwords[*]} }"'\)'"$3"'|[EDITED] \1'"$4"'|' $_boommeterLog
+                sed -i '\|^\(\[EDITED\] \)\{0,1\}'"$USER"':  \?'"${lastline[*]:1}"'$|s|\[EDITED\] ||;\|^\(\[EDITED\] \)\{0,1\}'"$USER"':  \?'"${lastline[*]:1}"'$|s|\('"$USER"': '"${prevwords[*]:+${prevwords[*]} }"'\)'"$curr"'|[EDITED] \1'"$4"'|' $_boommeterLog
 
                 # Mention users
                 if [[ "$4" =~ ^"@" ]]; then
@@ -1652,7 +1693,7 @@ boom() {
             prevwords+=($word)
           done
           if [[ "$found" != "yes" ]]; then
-            echo Error: \" $3 \" not found in \" ${lastline[@]:1} \"
+            echo "Error: \" $curr \" not found in \" ${lastline[@]:1} \""
           fi
         ;;
         chat_env_)
@@ -1758,7 +1799,7 @@ boom() {
             echo "0 notinitialized" > $hostfile
             unset HOSTFILE # clear any already-read hosts
             HOSTFILE=$hostfile \
-            read -e -p ' > ' || return $?
+            read -er -p ' > ' || return $?
 
             printf '%s' "$REPLY"
             \rm $hostfile &>/dev/null
@@ -1805,7 +1846,7 @@ boom() {
 
             # Build out hosts file to complete from for complete-hostname
             echo -n '' >$hostfile
-            for word in ${COMPREPLY[@]}; do [[ ! "$word" =~ ^"@" ]] && echo 0 $word >>$hostfile; done # 0 in case comp starts with num
+            for word in ${COMPREPLY[@]}; do [[ ! "$word" =~ ^"@" ]] && echo 0 "${word//\\\*/\*}" >>$hostfile; done # 0 in case comp starts with num
 
             # Get bash to call sv_hostfile to re-init hostfile for completion with new options
             unset HOSTFILE
@@ -1851,7 +1892,9 @@ boom() {
               _update_and_print_chat absolute
             elif [[ "$userInput" != "exit" ]]; then
               if [[ ! " edit cipher clear decipher timeout " =~ " ${userInput%% *} " ]]; then lastchattested="$USER: $(sed 's/ \+$//' <<<"$userInput")"; fi
-              chat $userInput | sed -e 's|^|   |'
+              local inputArr=()
+              set -f; read -ra inputArr <<<"$userInput"; set +f # ignore globs in env
+              chat "${inputArr[@]}" | sed -e 's|^|   |'
               if [[ " edit cipher clear " =~ " ${userInput%% *} " || " $userInput " =~ " -"[a-zO$]+"- " ]]; then lastchattested="$(tail -n 1 $_boommeterLog)"; fi
               _update_and_print_chat absolute
             else
@@ -2143,6 +2186,89 @@ boom() {
     meter_)
       boommeter ${@:2}
     ;;
+    migrate_)
+      # Extensively check if migration will work
+      local olduser="$2"
+      local newuser="$3"
+
+      if [[ ! " $BOOMADMINS " =~ " $USER " ]]; then
+        echo ERROR: Must be an admin to run \`boom migrate\`
+        return 1
+      fi
+
+      if [[ -z "$olduser" || -z "$newuser" ]]; then
+        echo ERROR: Expects \`boom migrate BOOMUSER NEWUSERNAME\` to migrate user install
+        return 1
+      fi
+
+      if [[ ! " $(cat $_boomUsers | xargs) " =~ " $olduser " ]]; then
+        echo ERROR: $olduser is not a boom user
+        return 1
+      fi
+
+      if [[ ! -d "/$BOOMUSERDIR/$olduser/$BOOMINSTALL" ]]; then
+        echo ERROR: No $BOOMINSTALL directory found to migrate for user $olduser
+        return 1
+      fi
+
+      if [[ -d "/$BOOMUSERDIR/$newuser/$BOOMINSTALL" ]]; then
+        echo ERROR: Directory $BOOMINSTALL already exists for user $newuser
+        return 1
+      fi
+
+      if [[ ! -d "/$BOOMUSERDIR/$newuser" ]]; then
+        echo ERROR: User $newuser not found in /$BOOMUSERDIR
+        return 1
+      fi
+
+      command -v zip &>/dev/null || { echo ERROR: \`zip\` is not a command; return 1; }
+
+      # Begin migration
+      echo Beginning migration from /$BOOMUSERDIR/$olduser/$BOOMINSTALL to /$BOOMUSERDIR/$newuser/$BOOMINSTALL
+
+      echo Archiving current install as backup...
+      local backupfile="/$BOOMUSERDIR/$BOOMBOSS/$BOOMINSTALL/$olduser-boombackup.zip"
+      \zip -b /tmp -r "$backupfile" "/$BOOMUSERDIR/$olduser/$BOOMINSTALL" || { echo ERROR: Could not archive existing user\'s boom install; return 1; }
+      echo Archive complete!
+      echo
+
+      echo Moving user install...
+      local newinstall="/$BOOMUSERDIR/$newuser/$BOOMINSTALL/"
+      sudo su $newuser -c "\mkdir -pv \"$newinstall\"" || { echo ERROR: Could not crete new user install dir; return 1; }
+      sudo su $newuser -c "\chmod -v 777 \"$newinstall\"" || { echo ERROR: Could not change new user install dir permissions; sudo \rmdir -v "$newinstall"; return 1; }
+      command -v rsync &>/dev/null || { echo ERROR: \`rsync\` is not a command; sudo \rmdir -v "$newinstall"; return 1; }
+      sudo su $newuser -c "\rsync -av \"/$BOOMUSERDIR/$olduser/$BOOMINSTALL/\" \"$newinstall\"" || { echo ERROR: Failed to move user install; sudo \rm -rv "$newinstall"; return 1; }
+      sudo \rm -rv "/$BOOMUSERDIR/$olduser/$BOOMINSTALL/"
+      echo Move complete!
+      echo
+
+      echo Attempting relevant file cleanup...
+      local sitedata="/$BOOMUSERDIR/$BOOMBOSS/$BOOMINSTALL/.boomserver/data/env/$olduser.json"
+      if [[ -f "$sitedata" ]]; then
+        echo Removing old user\'s site data json...
+        \rm -vf "$sitedata" || echo ERROR: Please remedy json removal manually
+        echo The new user\'s json will be generated on source.
+      fi
+
+      echo Replacing username in users, drought record, stat tracking, and goal contributors...
+      sed -i "s/^ $olduser$/ $newuser/" $_boomUsers
+      sed -i "s/^ $olduser / $newuser /" $_boomDroughtRecord
+      if [[ -n "$BOOMSTATTRACKING" && -f "$_boomStatTracker" ]]; then
+        sed -i "s/^ $olduser / $newuser /" $_boomStatTracker
+      fi
+      if [[ -f "$_boomGoalContrib" ]]; then
+        sed -i "s/^ $olduser / $newuser /" $_boomGoalContrib
+      fi
+      echo Please double check these files look good.
+      echo
+
+      echo Notifying user base...
+      boom chat @everyone $olduser has been migrated to $newuser
+      echo All done!
+      echo
+
+      echo Remove $backupfile if all looks well!
+    ;;
     patchnotes_)
       case "patchnotes_$2_" in
         patchnotes_latest_)
@@ -2180,6 +2306,9 @@ boom() {
         poll_env_) ;&
         poll_create_)
           _boompoll create
+        ;;
+        poll_edit_)
+          _boompoll edit ${@:3}
         ;;
         poll__) ;&
         poll_list_)
@@ -2231,8 +2360,6 @@ boom() {
     ;;
     wrapped_)
       # Tracker for per-year stats enabled by setting BOOMSTATTRACKING in BOOMCFGFILE
-      # File format:
-      # User BoomCount LongestDrought FavCount HallEntries ChatCmds TopCommandsStart(|delimited)
       if [[ -z "$BOOMSTATTRACKING" ]]; then
         echo Stat tracking is currently disabled. Ask $BOOMBOSS to turn it on!
       fi
@@ -2240,7 +2367,7 @@ boom() {
         echo Come back in December to show wrapped results!
       fi
 
-      # Parse file here and compare to current user's stats, maybe compare against other users too
+      #TODO: Parse file here and compare to current user's stats, maybe compare against other users too
     ;;
     zone_)
       case "zone_$2_" in
@@ -3201,7 +3328,8 @@ _boom() {
   suboptions=($(declare -f boom | sed -ne "\|^\s.*$3_.*_)$| s|\s*$3"'_\(.*\)_)|\1|p' | grep -v [*=] | grep -v '\(all\|me\|chat\|booms\)'))
 
   # Option completion exclusions
-  [[ "$(date +%m)" != 12 ]] && options=("${options[@]//wrapped}")
+  [[ "$(TZ=$BOOMTZ date +%m)" != 12 ]] && options=("${options[@]//wrapped}")
+  [[ ! " $BOOMADMINS " =~ " $USER " ]] && options=("${options[@]//migrate}") # migrate is admin only
 
   # Suboption completion exclusions
   [[ "${COMP_WORDS[1]}" == "poll" ]] && suboptions=("${suboptions[@]//env}")
@@ -3214,20 +3342,27 @@ _boom() {
     COMPREPLY=($(compgen -W "fav" -- $2));
   elif [[ "${COMP_WORDS[1]}" == "goal" && "$3" == "progress" && "${#COMP_WORDS[@]}" == "4" ]]; then
     COMPREPLY=($(compgen -W "fill" -- $2));
+  elif [[ "${COMP_WORDS[1]}" == "migrate" ]]; then
+    local user
+    if [[ " $(\cat $_boomUsers | xargs) " =~ " $3 " && "${#COMP_WORDS[@]}" == "4" ]]; then
+      COMPREPLY=($(compgen -W "$(for user in $(\ls -1 /$BOOMUSERDIR | xargs); do [[ ! " $(\cat $_boomUsers | xargs) " =~ " $user " ]] && echo $user; done)" -- $2))
+    elif [[ "${#COMP_WORDS[@]}" == "3" ]]; then
+      COMPREPLY=($(compgen -W "$(\cat $_boomUsers | xargs)" -- $2))
+    fi
   elif [[ "${COMP_WORDS[1]}" == "poll" && "${#COMP_WORDS[@]}" -ge "4" ]]; then
     # Only title complete for print/vote
-    if [[ ! " print vote " =~ " ${COMP_WORDS[2]} " ]]; then return; fi
-    if [[ "$2" =~ ^"-" ]]; then COMPREPLY=($(_chat_emoji $2)); return; fi
+    if [[ ! " print vote edit " =~ " ${COMP_WORDS[2]} " ]]; then return; fi
+    if [[ "${2//\"}" =~ ^"-" ]]; then COMPREPLY=($(_chat_emoji ${2//\"})); return; fi
 
     # Reply with titles
     COMPREPLY=()
     local curr="${COMP_WORDS[@]:3}"
     curr="${curr//\"}"
     local pre="$curr"
-    pre="${pre//^*$2}"
+    pre="${pre//^*${2//\"}}"
 
     while IFS= read line; do
-      [[ "$line" =~ " " ]] && line="${line//$pre/$2}"
+      [[ "$line" =~ " " ]] && line="${line//$pre/${2//\"}}"
       if [[ "${#COMP_WORDS[@]}" == "4" ]]; then
         COMPREPLY+=("\"$line\"")
       else
@@ -3257,6 +3392,36 @@ __boomavg() {
 complete -F __boomavg boomavg
 _chat() {
   if [[ "$DOOMBOOM" == "yes" ]]; then return; fi
+  unset _chat_sanitize
+  if [[ "$4" == "_envcall_" ]]; then
+    _chat_sanitize() {
+      while IFS= read -r line; do
+        line="${line//\*/\\\*}"
+        echo $line
+      done
+    }
+  else
+    _chat_sanitize() {
+      while IFS= read -r line; do
+        line="${line//\\/\\\\}"
+        line="${line//\[/\\[}"
+        line="${line//\]/\\]}"
+        line="${line//|/\\|}"
+        line="${line//\"/\\\"}"
+        line="${line//\'/\\\'}"
+        line="${line//\`/\\\`}"
+        line="${line//\&/\\\&}"
+        line="${line//\$/\\\$}"
+        line="${line//\!/\\\!}"
+        line="${line//\?/\\\?}"
+        line="${line//\(/\\\(}"
+        line="${line//\)/\\\)}"
+        line="${line//\*/\\\*}"
+        echo "$line"
+      done
+    }
+  fi
+
   COMPREPLY=()
   if [[ "$2" =~ ^"-" ]]; then COMPREPLY=($(_chat_emoji $2)); return; fi
   if [[ "${#COMP_WORDS[@]}" -ge "2" && "${COMP_WORDS[1]}" == "vote" ]]; then
@@ -3323,9 +3488,11 @@ _chat() {
   fi
   if [[ "edit" == "${COMP_WORDS[1]}" && " 3 4 " =~ " ${#COMP_WORDS[@]} " ]]; then
     if [[ "${#COMP_WORDS[@]}" == "3" ]]; then
-      COMPREPLY=($(compgen -W "$(sed -ne '/^\(\[EDITED\] \)\{0,1\}'"$USER"': /s|\(\[EDITED\] \)\{0,1\}\(.*\)|\2|p' $_boommeterLog | tail -n 1 | sed -e 's/'"$USER"': //')" -- $2))
+      local extra=
+      [[ "$4" == "_envcall_" ]] && extra="-e s/'/\\\\\'/g -e s/\"/\\\\\"/g" # env completion needs this done before handing off to sanitize
+      COMPREPLY=($(compgen -W "$(sed -ne '/^\(\[EDITED\] \)\{0,1\}'"$USER"': /s|\(\[EDITED\] \)\{0,1\}\(.*\)|\2|p' $_boommeterLog | tail -n 1 | sed -e 's/'"$USER"': //' $extra | _chat_sanitize | _chat_sanitize)" -- ${2//\\/\\\\}))
     elif [[ "${#COMP_WORDS[@]}" == "4" ]]; then
-      COMPREPLY=($(compgen -W "$3" -- $2))
+      COMPREPLY=($(compgen -W "$3" -- $2 | _chat_sanitize))
     fi
     return
   fi

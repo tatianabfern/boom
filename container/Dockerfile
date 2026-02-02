@@ -31,11 +31,11 @@ WORKDIR /home/${USERNAME}/.config/boom
 RUN bash .boominstaller.bash skippermcheck <<<"y"
 RUN bash .siteconfig.bash <<<"y"
 # Host site on 5252 in container
-RUN sed -i 's/\(BOOMPORT="\)[0-9]+/\15252/p' ~/.local/share/boom/.boomconfig
-RUN sed -i 's|\(BOOMSITE="\)[^ ]+|\1http://localhost:5252|p' ~/.local/share/boom/.boomconfig
+RUN sed -i 's/\(BOOMPORT="\)[0-9]\+/\15252/' ~/.local/share/boom/.boomconfig
+RUN sed -i 's|\(BOOMSITE="\)[^"]\+|\1http://localhost:5252|' ~/.local/share/boom/.boomconfig
 RUN sed -i "\|BOOMPORT| s|\"9029\"|\"5252\"|" ~/.local/share/boom/.boomserver/.boombackend.py
 RUN bash -lic "boom zone summary"
-WORKDIR /home/${USERNAME}
+WORKDIR /home/${USERNAME}/.local/share/boom/.boomserver
 
-CMD ["/bin/bash"]
+CMD ["python3", ".boombackend.py"]
 

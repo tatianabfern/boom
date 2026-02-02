@@ -92,7 +92,7 @@ Uninstallation is very straightforward. To uninstall all files created outside o
 
 
 ## Docs
-The below boomdocs output was generated as of patch 2.9.2:
+The below boomdocs output was generated as of patch 2.9.4:
 
 ```text
 Commands in the .boomrc suite:
@@ -147,6 +147,8 @@ Commands in the .boomrc suite:
 
 		avg [CMD]
 			runs boomavg with optional CMD arg
+		admins
+			lists information about the install's admins and admin capabilities
 		board [avg | drought | freq | full | today | top [NUM] | help | CMD | -] [USER USER ...]
 			shows boom leaderboard for all boomusers
 			users will be ordered by source date, USER args, or the space-delimited BOOMTABLECOLS env var (see `boom conf`)
@@ -238,7 +240,7 @@ Commands in the .boomrc suite:
 				HEIGHT positional arg changes height of goal display (default 20)
 				fill positional arg automatically sets HEIGHT to its max
 			stats
-				show brief summary of goal progress directly in terminal
+				show brief summary of goal progress and contributors directly in terminal
 			help
 				show boom goal help
 		hall
@@ -247,16 +249,22 @@ Commands in the .boomrc suite:
 			display who was most recently randomly boomed
 		meter THING
 			runs boommeter on THING
+		migrate BOOMUSER NEWUSERNAME
+			admin only - migrate boom user install files from BOOMUSER to NEWUSERNAME
 		patchnotes [full | latest [NUM]]
 			print latest boomrc patch notes
 			use latest keyword to show NUM (default 1) latest lines of patch notes
 			use full keyword to show all patch notes
-		poll [create | list | print [TITLE] | vote [TITLE] | help]
-			create, vote on, and view chat polls for all boomusers
+		poll [create | edit [TITLE] | list | print [TITLE] | vote [TITLE] | help]
+			create, vote on, edit, and view chat polls for all boomusers
 			will run list by default, or:
 	
 			create
 				enter an environment to build a poll to put in chat - env commands are displayed with `?`
+			edit [TITLE]
+				edit most recent poll or poll described by TITLE
+				polls can be edited by the submitting user if no users have yet voted
+				TITLE will complete in cmd line with chat emoji completion available
 			list
 				list all polls found in the current chat session, as well as vote counts and expiration dates
 			print [TITLE]
@@ -336,9 +344,11 @@ Commands in the .boomrc suite:
 ```
 
 ## Patch Notes
-The below patchnotes output was generated as of patch 2.9.2:
+The below patchnotes output was generated as of patch 2.9.4:
 
 ```text
+# 2.9.4  - boom admins/migrate commands added
+# 2.9.3  - completion cleanup - chat edit should auto-add backslashes outside of env
 # 2.9.2  - finally de-duplicate chat completion - boom calls chat's completion function
 # 2.9.1  - exit bar if tty dies and add ascii rules to boom conf
 # 2.9.0  - chat /coinflip added with customizable coin sides!

@@ -349,7 +349,7 @@ _boomgoal_printer() {
 _boomgoal() {
   local curr goal k ema end
 
-  _boom_goal_inited() { [[ -n "$_boomGoal" && -w "$_boomGoal" ]]; }
+  _boom_goal_inited() { [[ -n "$_boomGoal" && -w "$_boomGoal" ]] && [[ -n "$_boomGoalContrib" && -w "$_boomGoalContrib" ]]; }
   _boom_goal_active() {
     _boom_goal_inited || return 1
     local epochsecs=${EPOCHSECONDS:-$(TZ=$BOOMTZ date +%s)}
@@ -378,6 +378,8 @@ _boomgoal() {
         if ! _boom_goal_inited; then
           echo 0 $(_boomgoal_blackbox 1.00 .80 0 0) > $_boomGoal
           \chmod 777 $_boomGoal
+          awk '{print $1" 0"}' $_boomUsers > $_boomGoalContrib
+          \chmod 777 $_boomGoalContrib
           echo $_BE_BOT Successfully initialized goal!
           echo $_BE_BOOM🌡️$_BE_BOOM $USER initialized the boom goal! $_BE_BOOM🌡️$_BE_BOOM >> $_boomUserLog
         else
@@ -390,6 +392,8 @@ _boomgoal() {
           if ! _boom_goal_active; then
             echo 0 $(_boomgoal_blackbox $k $ema $goal $curr) > $_boomGoal
             \chmod 777 $_boomGoal
+            awk '{print $1" 0"}' $_boomUsers > $_boomGoalContrib
+            \chmod 777 $_boomGoalContrib
             echo $_BE_BOT Started new goal!
             echo $_BE_BOOM🌡️$_BE_BOOM $USER started a new boom goal! $_BE_BOOM🌡️$_BE_BOOM >> $_boomUserLog
           else
@@ -415,17 +419,38 @@ _boomgoal() {
         _boom_goal_parse || { echo boomgoal: ERROR: Unable to parse goal file; return 1; }
         local pct=$((curr*100/goal))
 
-        echo "$_BE_BOOM$_BE_BOOM Boom Goal $_BE_BOOM$_BE_BOOM"
+        echo "$_BE_BOOM$_BE_BOOM$_BE_BOOM$_BE_BOOM Boom Goal $_BE_BOOM$_BE_BOOM$_BE_BOOM$_BE_BOOM"
         echo "$_BE_BOOM  Due: $(TZ=$BOOMTZ date -d "@$end" "+%b %d")"
         echo "$_BE_BOOM  Progress: $curr / $goal booms ($pct%)"
-        echo "$_BE_BOOM$_BE_BOOM $( (( pct >= 100 )) && echo "Well done!" || echo "Good luck!") $_BE_BOOM$_BE_BOOM"
+        echo "$_BE_BOOM  "
+        echo "$_BE_BOOM  Contributors:"
+        _boomgoal _contributors_ | sed -e 's/^/'"$_BE_BOOM"'     /'
+        echo "$_BE_BOOM$_BE_BOOM$_BE_BOOM$_BE_BOOM $( (( pct >= 100 )) && echo "Well done!" || echo "Good luck!") $_BE_BOOM$_BE_BOOM$_BE_BOOM$_BE_BOOM"
       fi
+    ;;
+    __contributors__)
+      local linelen="$(($(wc -L < <(awk '{print $1}' $_boomGoalContrib))+2))"
+      (( linelen < 5 )) && linelen=5
+
+      #echo "$_BE_BOOM$_BE_BOOM Goal Contributors $_BE_BOOM$_BE_BOOM"
+      printf "%${linelen}s | %s\n" "USER" "BOOMS"
+      printf "%${linelen}s-|-%s\n" "-----" "------"
+      while read line; do
+        printf "%${linelen}s | %s\n" $line
+      done <$_boomGoalContrib | sort -nr -k3
+      printf "%${linelen}s-|-%s\n" "-----" "------"
+      #echo "$_BE_BOOM$_BE_BOOM$_BE_BOOM  Keep it up!  $_BE_BOOM$_BE_BOOM$_BE_BOOM"
     ;;
     __inc__)
       [[ -z "$2" ]] && return
       _boom_goal_active 2>/dev/null || return
       _boom_goal_parse 2>/dev/null || return
       _boomFileInc "$_boomGoal" "$curr" 1 $2 || return
+      if [[ " $(awk '{print $1}' $_boomGoalContrib | xargs) " =~ " $USER " ]]; then
+        _boomFileInc "$_boomGoalContrib" "$USER" 2 $2 || return
+      else
+        echo "$USER $2" >> $_boomGoalContrib
+      fi
 
       local oldcurr=$curr
       _boom_goal_parse 2>/dev/null || return

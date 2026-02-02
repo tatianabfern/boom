@@ -74,6 +74,74 @@ boomdev() {
       _generatereadme
       popd
     ;;
+    chatarchiver_)
+      local currdate=$(date +%d-%m-%y)
+      echo Archiving chat logs to .boommeterlog.zip-${currdate}
+      command -v zip &>/dev/null || { echo ERROR: \`zip\` is not a command; return 1; }
+      zip /$BOOMUSERDIR/$BOOMBOSS/$BOOMINSTALL/.boommeterlog.zip-${currdate} /$BOOMUSERDIR/$BOOMBOSS/$BOOMINSTALL/.boommeterlog-*
+      \rm -fv /$BOOMUSERDIR/$BOOMBOSS/$BOOMINSTALL/.boommeterlog-*
+    ;;
+    quests_)
+      local cmds=();
+      local minusers=$(($(wc -l $_boomUsers | awk '{print $1}')/2+1))
+
+      echo Possible future quest commands:
+      while read user; do
+        local rankfile=/$BOOMUSERDIR/$user/$BOOMINSTALL/.boomrankings;
+        if [ ! -r "$rankfile" ]; then
+          continue;
+        fi;
+        while read line; do
+          cmds+=($(echo $line | awk '{print $1}'));
+        done < $rankfile;
+      done < $_boomUsers;
+      cmds=($(echo "${cmds[@]}" | sed -e 's/ /\n/g' | sort | uniq -c | grep "^[ ]\+[$minusers-9][0-9]*" | awk '{print $2}'));
+      if [[ ${#cmds[@]} -gt 0 ]]; then
+        echo ${cmds[@]};
+        echo Rolled quest hash:
+        echo ${cmds[$RANDOM % ${#cmds[@]}]} | openssl dgst -sha256 | awk '{print $2}'
+      else
+        echo No cmds eligible for quest reroll
+      fi
+    ;;
+    statkey_)
+      if [[ -n "$2" && "$2" =~ ^[0-9]+$ && "$2" -le "31" ]]; then
+        awk '{print $1" "$'$2'}' $_boomStatTracker
+        return
+      fi
+      echo "1  user"
+      echo "2  total at beginning of year"
+      echo "3  longest drought"
+      echo "4  fav count"
+      echo "5  hall entries"
+      echo "6  chat commands"
+      echo "7  super booms"
+      echo "8  imported booms"
+      echo "9  number of droughts"
+      echo "10 bot super booms"
+      echo "11 quests completed"
+      echo "12 empty imports"
+      echo "13 longest boom hog streak"
+      echo "14 times sourcing boomrc"
+      echo "15 poll votes"
+      echo "16 times running [boom] chat"
+      echo "17 times roasted"
+      echo "18 times mentioning others in chat"
+      echo "19 largest import"
+      echo "20 polls created"
+      echo "21 unused"
+      echo "22 unused"
+      echo "23 unused"
+      echo "24 unused"
+      echo "25 unused"
+      echo "26 unused"
+      echo "27 unused"
+      echo "28 unused"
+      echo "29 unused"
+      echo "30 unused"
+      echo "31 top commands at start of year"
+      echo -e "\nrun with number to view that stat"
+    ;;
     help_)
       boomdocs boomdev
     ;;

@@ -5,7 +5,7 @@ _boompoll() {
   local title optline option count voters
   local addoption expiry pollopts usersVoted
   local exprstr pollparsed input pollstr
-  local voteCount
+  local voteCount minexprsec oldexprstr
 
   local pollflags=" m " # Default flags here
   local optionlines=()
@@ -118,6 +118,14 @@ _boompoll() {
 
     return 0
   }
+  _usersubmitted() {
+    # Find poll submit line for USER with TITLE
+    local ptitle="$@"
+    if ! grep -q "^pollbot: 🗳️ $USER submitted poll \"$title\"" $_boommeterLog; then
+      echo Error finding submission line: Expects $USER to have submitted poll
+      return 1
+    fi
+  }
   _expirycheck() {
     [[ -z "$pollparsed" ]] && echo Error checking expiry: Poll not parsed && return 1
 
@@ -142,7 +150,50 @@ _boompoll() {
     return 0
   }
 
+  local editing=
   case "_$1_" in
+    _edit_)
+      local editing="poll \"${@:2}\""
+      [[ "$editing" == "poll \"\"" ]] && editing="latest poll"
+      echo -e "Attempting to edit ${editing}"
+
+      # Find poll in question and ensure active
+      _findpoll ${@:2} || return 1
+      _expirycheck &>/dev/null || { echo Error editing: Poll has expired; return 1; }
+      _usersubmitted $title || return 1
+
+      # Check that no users voted
+      if [[ ! "$voteCount" == "0" ]]; then
+        echo Error editing: Cannot edit after users have voted
+        return 1
+      fi
+
+      # Set options in environment
+      for option in $(seq 0 $((${#optionlines[@]}-1))); do
+        # Convert each option from display string to -o opt> votes [voters] - format
+        optline="${optionlines[$option]}"
+        option="${optline%%>*}"
+        pollopts+=" $option> "
+      done
+
+      # Set expiry str
+      local seconds=$((expiry-polltime))
+      local m h d
+      d=$((seconds/86400))
+      h=$(($((seconds-d*86400))/3600))
+      m=$(($((seconds-d*86400-h*3600))/60))
+      exprstr="$(printf "%02dd%02dh%02dm" ${d} ${h} ${m})"
+
+      seconds=$((${EPOCHSECONDS:-$(TZ=$BOOMTZ date +%s)}-polltime))
+      d=$((seconds/86400))
+      h=$(($((seconds-d*86400))/3600))
+      m=$(($((seconds-d*86400-h*3600))/60))
+      minexprsec=$seconds
+
+      echo "Poll has been running for $d day(s), $h hour(s), $m minute(s)"
+      echo -e "Entering editor...\n"
+      editing=true
+    ;&
     _create_)
       # Bring users into a term environment to build the POLL string for chat
       echo -n  "$_BE_BOT $_BE_BOT $_BE_BOT $_BE_BOT $_BE_BOT"
@@ -303,6 +354,9 @@ _boompoll() {
         m=$(sed -ne 's/.*\([0-9]\{2\}\)m.*/\1/p' <<<"$exprstr")
         h=$(sed -ne 's/.*\([0-9]\{2\}\)h.*/\1/p' <<<"$exprstr")
         d=$(sed -ne 's/.*\([0-9]\{2\}\)d.*/\1/p' <<<"$exprstr")
+        m=${m#0}
+        h=${h#0}
+        d=${d#0}
         seconds=$((60*${m:-0}+3600*${h:-24}+3600*24*${d:-0}))
 
         echo $seconds
@@ -338,7 +392,9 @@ _boompoll() {
         echo Poll set to expire ${exprstr:-"24h"} after creation
         echo
 
-        pollstr="[POLL ${EPOCHSECONDS:-$(TZ=$BOOMTZ date +%s)}] -t $title - ${flagstr}${optionstr}-e $exprsec - -v  - "
+        local createtime=${EPOCHSECONDS:-$(TZ=$BOOMTZ date +%s)}
+        [[ -n "$editing" ]] && createtime=$polltime
+        pollstr="[POLL $createtime] -t $title - ${flagstr}${optionstr}-e $exprsec - -v  - "
       }
 
       local voteonexit=
@@ -426,7 +482,13 @@ _boompoll() {
               opt="$(sed -e 's/ \+$//' -e 's/^ \+//' <<<"$opt")"
 
               # Validate str here - enforce minimum 1 hour
+              oldexprstr=$exprstr
               exprstr=$(sed -ne '/^\(0[0-3]d\)\{0,1\}[0-9]\{2\}h\([0-9]\{2\}m\)\{0,1\}$/p' <<<"$opt")
+              if [[ -n "$editing" && "$(_exprstr2sec)" -le "$minexprsec" ]]; then
+                echo Invalid expiration string. Poll has already elapsed longer than $exprstr
+                exprstr=$oldexprstr
+                continue
+              fi
               if [[ "$exprstr" =~ "69m" ]]; then echo "   $_BE_BOT Nice";
               elif [[ "$exprstr" =~ "00h"[6-9][0-9]"m" ]]; then echo "   $_BE_BOT BoomBot will let that slide...";
               elif [[ "$exprstr" =~ "00h" ]]; then exprstr=; echo "   $_BE_BOT BoomBot decrees a minimum of 1 hour!";
@@ -465,10 +527,20 @@ _boompoll() {
             ;&
             save) ;&
             s)
-              local output="$({ _buildpoll && _parsepoll "$pollstr" && { [[ -z "$voteonexit" ]] && _printpoll; :; } && echo "$pollstr" >> $_boommeterLog; } | sed -e 's/^/   /')"
+              local output
+              if [[ -z "$editing" ]]; then
+                output="$({ _buildpoll && _parsepoll "$pollstr" && { [[ -z "$voteonexit" ]] && _printpoll; :; } && echo "pollbot: 🗳️ $USER submitted poll \"$title\"" >> $_boommeterLog && echo "$pollstr" >> $_boommeterLog; } | sed -e 's/^/   /')"
+              else
+                output="$({ _buildpoll && _parsepoll "$pollstr" && { [[ -z "$voteonexit" ]] && _printpoll; :; } && sed -i "$polllineno s/.*/$pollstr/" $_boommeterLog; } | sed -e 's/^/   /')"
+              fi
               echo "$output"
               [[ -z "$voteonexit" ]] && echo
-              [[ ! "$output" =~ ^"   Error" ]] && break
+              if [[ ! "$output" =~ ^"   Error" ]]; then
+                if [[ -z "$editing" && -n "$BOOMSTATTRACKING" ]]; then
+                  _boomStatInc $USER 20
+                fi
+                break
+              fi
             ;;
             title) ;&
             t)
@@ -534,8 +606,8 @@ _boompoll() {
           count="$(awk '{print $1}' <<<"${optline##*>}")"
 
           voters=
-          if [[ "$optline" =~ "(" && ! "$optline" =~ "()" ]]; then
-            voters="$(sed -ne 's/.*(\(.*\)).*/\1/p' <<<"${optline}")"
+          if [[ "$optline" =~ "(" && ! "$optline" =~ "()"$ ]]; then
+            voters="$(sed -ne 's/.*(\([^(]*\))$/\1/p' <<<"${optline}")"
             voters=" $(sed 's/ /\n/g' <<<"$voters" | sort | xargs) "
           fi
 
@@ -588,14 +660,14 @@ _boompoll() {
       local tmpoptionlines=()
       for option in $(seq 0 $((${#optionlines[@]}-1))); do
         # Remove existing $USER votes when listing options
-        voters=$(sed -e "s/.*(\\(.*\\)).*/\\1/" <<<"${optionlines[$option]}")
+        voters=$(sed -e "s/.*(\\([^(]*\\))$/\\1/" <<<"${optionlines[$option]}")
         if [[ " $voters " =~ " $USER " ]]; then
           voters="$(sed -e "s/ $USER / /" -e 's/ \+$//' -e 's/^ \+//' <<<" $voters ")"
 
           # replace voters # decrement vote # clean up grammar
-          tmpoptionlines+=("$(sed -e "s/(.*)/($voters)/" \
+          tmpoptionlines+=("$(sed -e "s/([^(]*)$/($voters)/" \
                                   -e 's/^\([^>]\+\)> \([0-9]\+\)\(.*\)/echo "\1> $((\2-1))\3"/e' \
-                                  -e 's/vote/votes/' \
+                                  -e 's/vote\( \|$\)/votes\1/' \
                                   -e 's/1 votes/1 vote/' \
                               <<<"${optionlines[$option]}")")
         else
@@ -628,7 +700,7 @@ _boompoll() {
       for option in $(seq 0 $((${#tmpoptionlines[@]}-1))); do
         # Add vote if option number matches
         if [[ " ${resp//,/ } " =~ " $option " && ! "$handledOpts" =~ " $option " ]]; then
-          optionlines[$option]="$(sed -e "s/(\\(.*\\))/(\\1 $USER)/" \
+          optionlines[$option]="$(sed -e "s/(\\(.*\\))$/(\\1 $USER)/" \
                                       -e 's/( /(/' \
                                       -e 's/^\([^>]\+\)> \([0-9]\+\)\(.*\)/echo "\1> $((\2+1))\3"/e' \
                                       -e 's/vote\( \|$\)/votes\1/' \
