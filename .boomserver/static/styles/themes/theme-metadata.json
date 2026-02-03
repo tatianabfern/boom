@@ -185,6 +185,24 @@
             "name": "Rose",
             "author": "Nathan",
             "user-defined": false
+        },
+        {
+            "id": "lunar-new-year",
+            "name": "Lunar New Year",
+            "author": "Nathan",
+            "user-defined": false
+        },
+        {
+            "id": "friend-in-need",
+            "name": "Friend In Need",
+            "author": "Nathan",
+            "user-defined": false
+        },
+        {
+            "id": "hong-kong",
+            "name": "Hong Kong",
+            "author": "Nathan",
+            "user-defined": false
         }
     ]
 }

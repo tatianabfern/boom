@@ -1,0 +1,25 @@
+:root {
+    --background-color: #390000;
+    --primary-color: #30000086;
+    --secondary-color: #33000000;
+
+    --text-color: #ffedde;
+    --text-emphasis-color: #fb182a;
+    --default-user-text-color: #f06f84;
+    --fav-user-text-color: #fdc857;
+    --bot-user-text-color: #f07178;
+
+    --background-image-url: url('../assets/media/lunar-new-year.jpg');
+}
+
+h1 {
+    text-shadow:
+        -1px -1px 0 black,
+         1px -1px 0 black,
+        -1px  1px 0 black,
+         1px  1px 0 black,
+         1px  0px 0 black,
+        -1px  0px 0 black,
+         0px  1px 0 black,
+         0px -1px 0 black;
+}

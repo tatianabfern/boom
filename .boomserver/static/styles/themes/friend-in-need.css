@@ -1,0 +1,33 @@
+:root {
+    --background-color: #2b3541;
+    --primary-color: #2b354186;
+    --secondary-color: #2b354100;
+
+    --text-color: #ddedff;
+    --text-emphasis-color: #ff7d74;
+    --default-user-text-color: #4ba84b;
+    --fav-user-text-color: #f3d084;
+    --bot-user-text-color: #71b3f0;
+
+    --background-image-url: url('../assets/media/friend-in-need.jpg');
+}
+
+h1 {
+    text-shadow:
+        -1px -1px 0 black,
+         1px -1px 0 black,
+        -1px  1px 0 black,
+         1px  1px 0 black,
+         1px  0px 0 black,
+        -1px  0px 0 black,
+         0px  1px 0 black,
+         0px -1px 0 black;
+}
+
+body {
+    text-shadow:
+       -1px -1px 0 black,
+        1px -1px 0 black,
+       -1px  1px 0 black,
+        1px  1px 0 black;
+}

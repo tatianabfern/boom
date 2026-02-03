@@ -1,0 +1,86 @@
+:root {
+    --background-color: #000d3933;
+    --primary-color: #05003046;
+    --secondary-color: #33000000;
+
+    --text-color: #def3ff;
+    --text-emphasis-color: #fff;
+    --default-user-text-color: #fff;
+    --fav-user-text-color: #fff;
+    --bot-user-text-color: #fddddd;
+
+    --background-image-url: url('../assets/media/hong-kong.jpg');
+}
+
+@keyframes flicker {
+    0%, 18%, 22%, 25%, 53%, 57%, 100% {
+        opacity:1;
+        text-shadow:
+            0 0 4px  #fff,
+            0 0 10px #fff,
+            0 0 20px #ff00ff,
+            0 0 40px #ff00ff,
+            0 0 80px #ff00ff;
+    }
+    20%, 24%, 55% {
+        opacity:.8;
+        text-shadow:
+            0 0 4px  #ffffff70,
+            0 0 10px #ffffff70,
+            0 0 20px #ff00ff70,
+            0 0 40px #ff00ff70,
+            0 0 80px #ff00ff70;
+    }
+}
+
+/* Linux font to replace Segoe Script */
+@font-face {
+    font-family: 'Playpen Sans';
+    src: url('../../assets/fonts/PlaypenSans/PlaypenSans-Regular.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+}
+
+h1 {
+    color: #fff;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    font-family: 'Segoe Script', 'Playpen Sans', cursive;
+    animation: flicker 3s infinite;
+}
+
+.username {
+    text-shadow:
+        0 0 4px  #fff,
+        0 0 10px #fff,
+        0 0 20px #e248e2,
+        0 0 40px #e248e2,
+        0 0 80px #e248e2;
+}
+
+.username-bot {
+    text-shadow:
+        0 0 4px  #fddddd,
+        0 0 10px #fddddd,
+        0 0 20px #e60f0f,
+        0 0 40px #e60f0f,
+        0 0 80px #e60f0f;
+}
+
+.username-fav {
+    text-shadow:
+        0 0 4px  #fff,
+        0 0 10px #fff,
+        0 0 20px #3e0fe6,
+        0 0 40px #3e0fe6,
+        0 0 80px #3e0fe6;
+}
+
+.boom-number {
+    text-shadow:
+        0 0 4px  #fff,
+        0 0 10px #fff,
+        0 0 20px #ff00ff,
+        0 0 40px #ff00ff,
+        0 0 80px #ff00ff;
+}
