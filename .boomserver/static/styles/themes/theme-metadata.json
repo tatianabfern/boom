@@ -193,8 +193,8 @@
             "user-defined": false
         },
         {
-            "id": "friend-in-need",
-            "name": "Friend In Need",
+            "id": "dogs-playing-poker",
+            "name": "Dogs Playing Poker",
             "author": "Nathan",
             "user-defined": false
         },
@@ -202,7 +202,8 @@
             "id": "hong-kong",
             "name": "Hong Kong",
             "author": "Nathan",
-            "user-defined": false
+            "user-defined": false,
+            "language": "Cantonese"
         }
     ]
 }

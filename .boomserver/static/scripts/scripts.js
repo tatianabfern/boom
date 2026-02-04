@@ -8,7 +8,8 @@ function logout() {
     eraseCookie('boomToken');
     document.getElementById('logoutBtn').style.display = 'none';
     document.getElementById('helpWrap').style.display = 'none';
-    window.location.reload();
+
+    reloadWindow();
 }
 
 function backendPasswdCheck(passwd, username=null) {
@@ -189,7 +190,7 @@ async function boomFetch(endpoint, body = {}) {
             if (response.status === 401) {
                 eraseCookie('boomToken');
                 showAlert("Token Error","Please reload the boom zone");
-                window.location.reload();
+                reloadWindow();
             }
             else if (response.status === 504 || response.status === 503) {
                 console.error("Timeout Error","The server took too long to respond. Retrying...");
@@ -235,6 +236,27 @@ let boomBoardDroughtContent = "";
 let boomPatchnoteContent = "";
 let boomHallContent = "";
 
+function getSiteTitle(language = "English") {
+    let title = "";
+    let emoji = (boomEmoji === "") ? '💥' : `${boomEmoji}`;
+
+    if (window.currentThemeLanguage === "Cantonese") {
+        (activeUser === null)
+            ? title = `${emoji.repeat(5)} 歡 迎 嚟 到 <span class="hover-red"> BOOM </span> 區 ! ${emoji.repeat(5)}`
+            : title = `${emoji.repeat(5)} 歡迎來到 ${activeUser} 的 <span class="hover-red"> BOOM </span> 區 ! ${emoji.repeat(5)}`;
+    } else {
+        (activeUser === null)
+            ? title = `${emoji.repeat(5)} Welcome to the <span class="hover-red"> BOOM </span> zone! ${emoji.repeat(5)}`
+            : title = `${emoji.repeat(5)} Welcome to ${activeUser}'s <span class="hover-red"> BOOM </span> zone! ${emoji.repeat(5)}`;
+    }
+
+    return title;
+}
+
+function updateSiteTitle(language) {
+    document.getElementById("boom-header").innerHTML = getSiteTitle(language);
+}
+
 // fetch boom emoji
 async function fetchBoomEmoji() {
     const data = await boomFetch("/get_boom_emoji");
@@ -244,9 +266,7 @@ async function fetchBoomEmoji() {
     boomEmoji = retVal;
     const header = document.getElementById("boom-header");
 
-    (activeUser === null)
-        ? header.innerHTML = `${boomEmoji.repeat(5)} Welcome to the <span class="hover-red"> BOOM </span> zone! ${boomEmoji.repeat(5)}`
-        : header.innerHTML = `${boomEmoji.repeat(5)} Welcome to ${activeUser}'s <span class="hover-red"> BOOM </span> zone! ${boomEmoji.repeat(5)}`;
+    header.innerHTML = getSiteTitle(window.currentThemeLanguage || "English");
 
     const enc = encodeURIComponent(boomEmoji);
     document.body.style.cursor = `url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 100 100'%3E%3Ctext y='78' font-size='82'%3E${enc}%3C/text%3E%3C/svg%3E") 16 16, auto`;
@@ -647,8 +667,11 @@ function renderPoll(poll) {
     returnLine.className = 'poll-line';
 
     const botUser = document.createElement('span');
-    botUser.textContent = "pollbot:  🗳️ ";
+    botUser.textContent = "pollbot: ";
     botUser.className = 'username-bot';
+
+    const emojiSpan = document.createElement('span');
+    emojiSpan.textContent = " 🗳️ ";
 
     const pollDiv = document.createElement('div');
     pollDiv.className = 'poll';
@@ -672,6 +695,7 @@ function renderPoll(poll) {
     pollDiv.appendChild(body);
 
     returnLine.appendChild(botUser);
+    returnLine.appendChild(emojiSpan);
     returnLine.appendChild(pollDiv);
 
     return returnLine;
@@ -775,7 +799,7 @@ function renderChatItem(payload) {
         if (/^@[a-zA-Z]+$/.test(word)) {
             if (word.toLowerCase().includes('bot')) {
                 wordElement.className = 'username-bot';
-            } else if (word === "@" + boomFavUsername) {
+            } else if (word === "@" + boomFavUsername || word === "@everyone") {
                 wordElement.className = 'username-fav';
             } else {
                 wordElement.className = 'username';
@@ -910,8 +934,13 @@ async function fetchBoommeterFileContent() {
     setTimeout(fetchBoommeterFileContent, 1000)
 }
 
-window.onload = function() {
-    createChannelConnection();
+function reloadWindow() {
+    window.location.reload();
+    updateSiteTitle(window.currentThemeLanguage || "English");
+}
+
+window.onload = async function() {
+    await createChannelConnection();
 
     if (checkCookie('boomToken')) {
         apiKey = getCookie('boomToken');

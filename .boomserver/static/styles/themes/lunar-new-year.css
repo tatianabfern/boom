@@ -23,3 +23,12 @@ h1 {
          0px  1px 0 black,
          0px -1px 0 black;
 }
+
+body {
+    text-shadow:
+       -1px -1px 0 black,
+        1px -1px 0 black,
+       -1px  1px 0 black,
+        1px  1px 0 black;
+}
+

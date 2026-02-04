@@ -9,7 +9,7 @@
     --fav-user-text-color: #f3d084;
     --bot-user-text-color: #71b3f0;
 
-    --background-image-url: url('../assets/media/friend-in-need.jpg');
+    --background-image-url: url('../assets/media/dogs-playing-poker.jpg');
 }
 
 h1 {
@@ -31,3 +31,4 @@ body {
        -1px  1px 0 black,
         1px  1px 0 black;
 }
+

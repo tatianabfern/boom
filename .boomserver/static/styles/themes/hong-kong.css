@@ -45,8 +45,22 @@ h1 {
     color: #fff;
     letter-spacing: .08em;
     text-transform: uppercase;
-    font-family: 'Segoe Script', 'Playpen Sans', cursive;
+    font-family: 'Segoe Script', 'Playpen Sans', 'Noto Sans CJK', cursive;
     animation: flicker 3s infinite;
+}
+
+h2 {
+    color: #fff;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    font-family: 'Segoe Script', 'Playpen Sans', 'Noto Sans CJK', cursive;
+
+    text-shadow:
+        0 0 4px  #fff,
+        0 0 10px #fff,
+        0 0 20px #ff00ff,
+        0 0 40px #ff00ff,
+        0 0 80px #ff00ff;
 }
 
 .username {
@@ -84,3 +98,12 @@ h1 {
         0 0 40px #ff00ff,
         0 0 80px #ff00ff;
 }
+
+body {
+    text-shadow:
+       -1px -1px 0 black,
+        1px -1px 0 black,
+       -1px  1px 0 black,
+        1px  1px 0 black;
+}
+

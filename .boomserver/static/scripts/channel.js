@@ -1,4 +1,4 @@
-function createChannelConnection() {
+async function createChannelConnection() {
     channel = new BroadcastChannel("customization_popup_channel");
 
     channel.addEventListener('message', (event) => {

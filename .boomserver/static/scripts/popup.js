@@ -9,7 +9,7 @@ async function buildDropdown() {
         const json = await response.json();
 
         const dropdown = document.getElementById("theme-dropdown");
-        dropdown.innerHTML = ""; 
+        dropdown.innerHTML = "";
 
         for (const theme of json.themes) {
             const option = document.createElement("option");
@@ -19,6 +19,9 @@ async function buildDropdown() {
             dropdown.appendChild(option);
         }
 
+        if (userSettingsJson !== null && userSettingsJson.theme !== undefined) {
+            dropdown.value = userSettingsJson.theme.id;
+        }
     } catch (error) {
         console.error('Error loading metadata:', error);
     }
