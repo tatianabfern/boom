@@ -240,14 +240,31 @@ function getSiteTitle(language = "English") {
     let title = "";
     let emoji = (boomEmoji === "") ? '💥' : `${boomEmoji}`;
 
-    if (window.currentThemeLanguage === "Cantonese") {
-        (activeUser === null)
-            ? title = `${emoji.repeat(5)} 歡 迎 嚟 到 <span class="hover-red"> BOOM </span> 區 ! ${emoji.repeat(5)}`
-            : title = `${emoji.repeat(5)} 歡迎來到 ${activeUser} 的 <span class="hover-red"> BOOM </span> 區 ! ${emoji.repeat(5)}`;
-    } else {
-        (activeUser === null)
-            ? title = `${emoji.repeat(5)} Welcome to the <span class="hover-red"> BOOM </span> zone! ${emoji.repeat(5)}`
-            : title = `${emoji.repeat(5)} Welcome to ${activeUser}'s <span class="hover-red"> BOOM </span> zone! ${emoji.repeat(5)}`;
+    switch (language) {
+        case "Chinese (Traditional)":
+            (activeUser === null)
+                ? title = `${emoji.repeat(5)} 歡迎來到本社<span class="hover-red"> BOOM </span>區！ ${emoji.repeat(5)}`
+                : title = `${emoji.repeat(5)} 歡迎來到 ${activeUser} 的<span class="hover-red"> BOOM </span>區！ ${emoji.repeat(5)}`;
+            break;
+        case "Chinese (Simplified)":
+            (activeUser === null)
+                ? title = `${emoji.repeat(5)} 欢迎来到本社<span class="hover-red"> BOOM </span>区！ ${emoji.repeat(5)}`
+                : title = `${emoji.repeat(5)} 欢迎来到 ${activeUser} 的<span class="hover-red"> BOOM </span>区！ ${emoji.repeat(5)}`;
+            break;
+        case "Spanish":
+            (activeUser === null)
+                ? title = `${emoji.repeat(5)} ¡Bienvenido a la zona <span class="hover-red"> BOOM</span>! ${emoji.repeat(5)}`
+                : title = `${emoji.repeat(5)} ¡Bienvenido a la zona <span class="hover-red"> BOOM </span> de ${activeUser}! ${emoji.repeat(5)}`
+            break;
+        case "Turkish":
+            (activeUser === null)
+                ? title = `${emoji.repeat(5)} <span class="hover-red"> BOOM</span> bölgesine hoş geldiniz! ${emoji.repeat(5)}`
+                : title = `${emoji.repeat(5)} ${activeUser}'nin <span class="hover-red"> BOOM </span> bölgesine hoş geldiniz! ${emoji.repeat(5)}`
+            break;
+        default:
+            (activeUser === null)
+                ? title = `${emoji.repeat(5)} Welcome to the <span class="hover-red"> BOOM </span> zone! ${emoji.repeat(5)}`
+                : title = `${emoji.repeat(5)} Welcome to ${activeUser}'s <span class="hover-red"> BOOM </span> zone! ${emoji.repeat(5)}`;
     }
 
     return title;

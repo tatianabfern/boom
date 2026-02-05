@@ -51,7 +51,9 @@ async function setInitalTheme() {
     }
 }
 
-setInitalTheme();
+(async () => {
+  await setInitalTheme();
+})();
 
 function saveTheme(theme) {
     userSettingsJson.theme = theme;
