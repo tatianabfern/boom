@@ -41,7 +41,7 @@ boomdocs() {
   _aliases() {
     for filename in ${files[@]}; do
       if [ "$(sed -n '/^###'$modifier'Alias/p' $filename)" ]; then
-        bash -c "export B='$B'; export N='$N'; source $BOOMCFGFILE; $(sed -n '/^###'$modifier'Alias/,/^###$/ s/# \(.*\);/echo -e \1/p' $filename)"
+        bash -c "export B='$B'; export N='$N'; export pagertab='$__BOOMPAGERTAB'; source $BOOMCFGFILE; $(sed -n '/^###'$modifier'Alias/,/^###$/ s/# \(.*\);/echo -e \1/p' $filename)"
       fi
     done
   }
@@ -49,25 +49,32 @@ boomdocs() {
   _functions() {
     for filename in ${files[@]}; do
       if [ "$(sed -n '/^###'$modifier'Function/p' $filename)" ]; then
-        bash -c "export B='$B'; export N='$N'; source $BOOMCFGFILE; $(sed -n '/^###'$modifier'Function/,/^###$/ s/# \(.*\);/echo -e \1/p' $filename)"
+        bash -c "export B='$B'; export N='$N'; export pagertab='$__BOOMPAGERTAB'; source $BOOMCFGFILE; $(sed -n '/^###'$modifier'Function/,/^###$/ s/# \(.*\);/echo -e \1/p' $filename)"
       fi
     done
   }
 
+  # Not the prettiest logic - sorry, at least it works
   if [ -n "$1" ]; then
-    BOOMCFGFILE=$BOOMCFGFILE _boomrcman $@
+    if command -v less &>/dev/null; then
+      less -RFf < <(__BOOMPAGERTAB="\t" BOOMCFGFILE=$BOOMCFGFILE _boomrcman $@)
+    else
+      BOOMCFGFILE=$BOOMCFGFILE _boomrcman $@
+    fi
   else
-    echo Commands in the .boomrc suite:
-    _aliases
-    _functions
+    if command -v less &>/dev/null; then
+      less -RFf < <(echo "Commands in the .boomrc suite:"; __BOOMPAGERTAB="\t" _aliases; __BOOMPAGERTAB="\t" _functions;)
+    else
+      echo "Commands in the .boomrc suite:"; _aliases; _functions;
+    fi
   fi
 }
 alias boomdocs="BOOMCFGFILE=$BOOMCFGFILE boomdocs"
 
 # Just print help for one command
 # '_' at start of function/alias name inserts tab at front of documentation when called with _boomrcman _<name> but will complete and work tabless with _boomrcman <name>
-# allows one documented function to call another function's documentation with $(bash -l -c "source $BOOMCFGFILE 2>/dev/null; export BOOMCFGFILE=$BOOMCFGFILE; source /$BOOMUSERDIR/$BOOMBOSS/$BOOMRCS/.boomdocsrc 2>/dev/null; _boomrcman _<name>")
-# Above subshell command is only that complicated because it assumes user doesn't source .boomrc in .bashrc - see .boomenvrc for alt example
+# allows one documented function to call a subfunction's documentation with $pagertab$(bash -l -c "source $BOOMCFGFILE 2>/dev/null; export BOOMCFGFILE=$BOOMCFGFILE; source /$BOOMUSERDIR/$BOOMBOSS/$BOOMRCS/.boomdocsrc 2>/dev/null; _boomrcman _<name>")
+# Above subshell command is only that complicated because it assumes user doesn't source .boomrc in .bashrc - see .boomenvrc and .boomdevrc for alt example
 # only names with _ in front can have multiple words separated by -
 # _<name> takes regex
 # good example usage of this in .termrc
@@ -86,7 +93,7 @@ _boomrcman() {
   fi
 
   local modifiers=$(echo ${_boomValidScModifiers[*]} | sed 's/ /\\\|/g')
-  outText=$(bash -c "export B='$B'; export N='$N'; source $BOOMCFGFILE; $(sed -ne '/^###\('$modifiers'\)\{0,1\}\(Alias\|Function\) \(_\)\{0,1\}'"${searchterm}"'$/,/^###$/ s/# \(.*\);/echo -e \1/p' ${files[@]})")
+  outText=$(bash -c "export B='$B'; export N='$N'; export pagertab='$__BOOMPAGERTAB'; source $BOOMCFGFILE; $(sed -ne '/^###\('$modifiers'\)\{0,1\}\(Alias\|Function\) \(_\)\{0,1\}'"${searchterm}"'$/,/^###$/ s/# \(.*\);/echo -e \1/p' ${files[@]})")
 
   local sedCmd=
   if [[ "$1" =~ ^"_" ]]; then

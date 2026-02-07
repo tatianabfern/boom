@@ -229,6 +229,9 @@
 # 2.9.2  - finally de-duplicate chat completion - boom calls chat's completion function
 # 2.9.3  - completion cleanup - chat edit should auto-add backslashes outside of env
 # 2.9.4  - boom admins/migrate commands added
+# 2.9.5  - boom docs are now paginated with less if available and longer than a page
+# 2.9.6  - add boom env refresh
+# 2.9.7  - add chat /ascii edit
 
 DOOMBOOM=
 if [ -z "$USER" ]; then
@@ -547,7 +550,7 @@ _boomFileInc() {
   ) 9<>"$file"
 
   \rm -f "$tmp" 2>/dev/null
-  \chmod 777 "$file"
+  \chmod 777 "$file" 2>/dev/null
 }
 
 # BOOM stat tracking
@@ -731,7 +734,7 @@ _boommeter() {
       clear
     else
       export AUTOBOOMBOT=
-      echo $_BE_BOOM$_BE_BOOM WE BRING THE BOOM $_BE_BOOM$_BE_BOOM
+      echo $(bang 2) WE BRING THE BOOM $(bang 2)
     fi
     DOOMBOOM=$(cat $_doomTracker)
   fi
@@ -928,7 +931,7 @@ boommeter() {
   fi
 
   # Mult if boom drought ended
-  if $logrun && [[ "$(cat $_boomDrought)" -gt "45" ]]; then
+  if $logrun && [[ "$(cat $_boomDrought)" -ge "45" ]]; then
     mult=$((${mult:-1}*2))
     echo "Congratulations! Your drought was $(cat $_boomDrought) commands long!"
     [[ -n "$BOOMSTATTRACKING" ]] && _boomStatInc $USER 9
@@ -951,7 +954,7 @@ boommeter() {
     dispscore=6
     if $logrun; then
       echo " $USER $(TZ=$BOOMTZ date -u +%s) $1" >> $_boomHoF
-      echo "$_BE_BOOM$_BE_BOOM$_BE_BOOM 6 BIG BOOMS - Welcome to the BOOM hall! $_BE_BOOM$_BE_BOOM$_BE_BOOM" >> $_boomUserLog
+      echo "$(bang 3) 6 BIG BOOMS - Welcome to the BOOM hall! $(bang 3)" >> $_boomUserLog
       [[ -n "$BOOMSTATTRACKING" ]] && _boomStatInc $USER 5
     fi
   fi
@@ -1216,7 +1219,7 @@ alias doomnow="doom; echo doomnow is deprecated - use doom"
 # "\t\tactivate the boom meter in all terminals!";
 # "\t\tthis command will re-activate the boom meter after running doom!";
 ###
-alias bringtheboom="_boombotChatCmd bringtheboom; export DOOMBOOM= ; export AUTOBOOMBOT= ; echo -n '' > $_doomTracker ; echo $_BE_BOOM$_BE_BOOM WE BRING THE BOOM $_BE_BOOM$_BE_BOOM"
+alias bringtheboom="_boombotChatCmd bringtheboom; export DOOMBOOM= ; export AUTOBOOMBOT= ; echo -n '' > $_doomTracker ; echo $(bang 2) WE BRING THE BOOM $(bang 2)"
 ###Alias boomhelp
 # "\t${B}boomhelp${N}";
 # "\t\tprint important parts of boom intro text";
@@ -1230,11 +1233,11 @@ alias boomhelp="_boomIntroTxt flag"
 # "\t\tsee \`boomdocs\` for other boom-related command help";
 # "\t\tuse options below in place of <cmd> <opts>";
 # "";
-# "$(bash -l -c "source $BOOMCFGFILE 2>/dev/null; export BOOMCFGFILE=$BOOMCFGFILE; source /$BOOMUSERDIR/$BOOMBOSS/$BOOMRCS/.boomdocsrc 2>/dev/null; _boomrcman _boom-.*")";
+# "$pagertab$(bash -l -c "source $BOOMCFGFILE 2>/dev/null; export BOOMCFGFILE=$BOOMCFGFILE; source /$BOOMUSERDIR/$BOOMBOSS/$BOOMRCS/.boomdocsrc 2>/dev/null; _boomrcman _boom-.*")";
 # "\t\t${B}help${N}\n\t\t\tprints this help message";
 ###
 ###SubFunction _boom-avg
-# "\t${B}boom-avg${N} [CMD]";
+# "\t${B}boom-avg${N} [CMD] ";
 # "\t\truns boomavg with optional CMD arg";
 ###
 ###SubFunction _boom-admins
@@ -1316,11 +1319,13 @@ alias boomhelp="_boomIntroTxt flag"
 ###
 ###SubFunction _boom-env
 ###ExcFunction _boom-env-exit
-# "\t${B}boom-env${N} [${B}exit${N} | ${B}help${N}]";
+###ExcFunction _boom-env-refresh
+# "\t${B}boom-env${N} [${B}exit${N} | ${B}refresh${N} | ${B}help${N}]";
 # "\t\tsource the boom env to allow running boom commands with completion without the preceeding \`boom\`";
 # "\t\taliases created by this command will be printed to the terminal";
 # "\t\tthis will not overwrite existing commands";
 # "\t\texit will unalias env commands and help will print this help";
+# "\t\trefresh will exit and re-enter the env - this is useful if an env command is added/changed/removed";
 # "\n\t\tadd \`boom env &>/dev/null\` to your .bashrc to start terminals with the boom env sourced!";
 ###
 ###SubFunction _boom-favorite
@@ -1332,18 +1337,20 @@ alias boomhelp="_boomIntroTxt flag"
 # "\t\tadd entries keyword to view current entries per user for tomorrow's drawing!";
 ###
 ###SubFunction _boom-goal
+###ExcFunction _boom-goal-contributors
 ###ExcFunction _boom-goal-init
 ###ExcFunction _boom-goal-progress
 ###ExcFunction _boom-goal-stats
-# "\t${B}boom-goal${N} [${B}init${N} | ${B}progress${N} [${B}fill${N} | HEIGHT] | ${B}stats${N} | ${B}help${N}]";
+# "\t${B}boom-goal${N} [${B}contributors${N} | ${B}init${N} | ${B}progress${N} [${B}fill${N} | HEIGHT] | ${B}stats${N} | ${B}help${N}]";
 # "\t\tinitialize and view status of boom goals!";
 # "\t\tboom goals are dynamically set targets of booms collected through random command hits!";
 # "\t\tachieve the boom goal and BoomBot will choose everyone as its favorite for a day!";
-# "\n\t\t${B}init${N}\n\t\t\tadmin only - will initialize a new 7-14 day goal for the install, factoring in past pass/fail stats";
+# "\n\t\t${B}contributors${N}\n\t\t\tsee contributor counts towards most recent goal from stats!";
+# "\t\t${B}init${N}\n\t\t\tadmin only - will initialize a new 7-14 day goal for the install, factoring in past pass/fail stats";
 # "\t\t${B}progress${N} [${B}fill${N} | HEIGHT]\n\t\t\tview animated progress toward most recent goal!";
 # "\t\t\tHEIGHT positional arg changes height of goal display (default 20)";
 # "\t\t\tfill positional arg automatically sets HEIGHT to its max";
-# "\t\t${B}stats${N}\n\t\t\tshow brief summary of goal progress and contributors directly in terminal";
+# "\t\t${B}stats${N}\n\t\t\tshow brief summary of goal progress and contributors directly in terminal!";
 # "\t\t${B}help${N}\n\t\t\tshow boom goal help";
 ###
 ###SubFunction _boom-hall
@@ -1484,7 +1491,7 @@ boom() {
       echo $(bang) Admin\(s\): $BOOMADMINS
       echo $(bang)
       echo $(bang) Only admins can run the following:
-      echo $(bang) \`chat /timeout\` - time out users
+      echo $(bang) \`chat /timeout\` - time out users for $((_BOOMDEFAULTTIMEOUT/60)) minutes
       echo $(bang) \`boom goal init\` - start a new boom goal
       echo $(bang) \`boom migrate\` - transfer a user\'s files to new username
       echo $(bang 13)
@@ -1885,6 +1892,11 @@ boom() {
               chat /boomstoday ${userInput#/boomstoday}
               lastchattested="$(tail -n 2 $_boommeterLog | head -n 1)"
               _update_and_print_chat absolute
+            elif [[ "$userInput" =~ ^"/ascii edit" ]]; then
+              # This needs to be not piped through sed bc it breaks vim
+              chat $userInput
+              lastchattested="$(tail -n 1 $_boommeterLog)"
+              _update_and_print_chat absolute
             elif [[ "$userInput" =~ ^"vote" ]]; then
               _update_and_print_chat absolute
               chat vote ${userInput#vote} | sed -e 's|^|   |'
@@ -2086,6 +2098,18 @@ boom() {
             echo Error: .boomenvrc not found
           fi
         ;;
+        env_refresh_)
+          for aliasname in $BOOMENV; do
+            unalias $aliasname &>/dev/null
+          done
+          BOOMENV=
+          echo Refreshing env...
+          if [[ -f "/$BOOMUSERDIR/$BOOMBOSS/$BOOMRCS/.boomenvrc" ]]; then
+            source /$BOOMUSERDIR/$BOOMBOSS/$BOOMRCS/.boomenvrc
+          else
+            echo Error: .boomenvrc not found
+          fi
+        ;;
         env_help_)
           boomdocs boom-env
         ;;
@@ -2141,6 +2165,10 @@ boom() {
         goal_init_)
           _boomgoal init
         ;;
+        goal_contributors_)
+          _boomgoal _inited_ && _boomgoal contributors || echo $_BE_BOT The goal has not been initialized!
+
+        ;;
         goal_progress_)
           # Ensure boombar integration
           declare -f _stashBoombar &>/dev/null && _stashBoombar
@@ -2161,9 +2189,9 @@ boom() {
       esac
     ;;
     hall_)
-      echo $_BE_BOOM$_BE_BOOM$_BE_BOOM Those recorded below have achieved recognition in the hallowed hall of BOOM $_BE_BOOM$_BE_BOOM$_BE_BOOM;
+      echo $(bang 3) Those recorded below have achieved recognition in the hallowed hall of BOOM $(bang 3);
       while read line; do
-        echo $_BE_BOOM$_BE_BOOM$_BE_BOOM $(echo $line | awk '{print $1}'): $(echo $line | awk '{print $3}') - $(TZ=$BOOMTZ date -d @$(echo $line | awk '{print $2}')) $_BE_BOOM$_BE_BOOM$_BE_BOOM
+        echo $(bang 3) $(echo $line | awk '{print $1}'): $(echo $line | awk '{print $3}') - $(TZ=$BOOMTZ date -d @$(echo $line | awk '{print $2}')) $(bang 3)
       done < $_boomHoF
     ;;
     latest_)
@@ -2335,8 +2363,8 @@ boom() {
       fi
     ;;
     todo_)
-      echo $_BE_BOOM$_BE_BOOM BOOM TODOs $_BE_BOOM$_BE_BOOM
-      sed -ne 's/#TODO: /TODO: /p' $BASH_SOURCE | grep -v " sed "
+      echo $(bang 2) BOOM TODOs $(bang 2)
+      sed -ne 's/^#TODO: /TODO: /p' $BASH_SOURCE | grep -v " sed "
     ;;
     total_)
       if [[ -n "${2}" && " $(cat $_boomUsers | xargs) " =~ " ${2} " ]]; then
@@ -2645,7 +2673,7 @@ chat() {
 _chatHelpTxt() {
   echo $_BE_BOT$_BE_BOT Welcome to the BoomBot help $_BE_BOT$_BE_BOT
   echo /help - BoomBot will print this!
-  echo /ascii {FILE \| delete \| rules} - BoomBot will let you print ascii FILE to chat - run /ascii rules for more info!
+  echo /ascii {FILE \| delete \| edit \[FILE\] \| rules} - BoomBot will let you print ascii FILE to chat - run /ascii rules for more info!
   echo /boomstoday - BoomBot will print a breakdown of how many random booms each user has received today!
   echo /coinflip [HEADS] [TAILS] - CoinBot will flip a coin and select between HEADS and TAILS!
   echo /hype PERSON - BoomBot will hype up \(\"boombot\" \| \"me\" \| \"random\"\) or any \"\<boomusername\>\"!
@@ -2663,7 +2691,7 @@ _chatHelpTxt() {
     echo Admin Commands:
     echo /timeout PERSON - BoomBot will timeout a boom user for 30 minutes!
   fi
-  echo $_BE_BOOM$_BE_BOOM Don\'t forget to BOOM! $_BE_BOOM$_BE_BOOM
+  echo $(bang 2) Don\'t forget to BOOM! $(bang 2)
 }
 _chat_cmds() {
   local jokes=(
@@ -2866,7 +2894,7 @@ _chat_cmds() {
 
   local cmd=
   if [[ "${@}" =~ ^"/" ]]; then
-    cmd="$(echo ${@} | sed -ne 's/^\/\([a-z]\+\).*/\1/p')"
+    cmd="$(echo ${@} | sed -ne 's/^\/\([^ ]\+\).*/\1/p')"
   else
     return
   fi
@@ -2905,6 +2933,22 @@ _chat_cmds() {
           echo $_BE_BOT Deleted your latest masterpiece!
           return
         ;;
+        /ascii_edit_)
+          local file=$3
+          [[ -n "$file" ]] || { echo Error: Please provide FILE to edit; return 1; }
+          command -v vim &>/dev/null || { echo ERROR: /ascii edit requires vim; return 1; }
+          if [[ "$file" =~ ^"/" ]]; then
+            echo Opening $file for editing...
+            sleep 1
+            vim $file
+            return
+          else
+            echo Opening ~/ascii/${file##*/} for editing...
+            sleep 1
+            vim ~/ascii/${file##*/}
+            return
+          fi
+        ;;
         /ascii_rules_)
           echo "            $_BE_BOT ASCII Style Guide and Usage $_BE_BOT"
           echo " Char Limit: $maxlinechars"
@@ -2912,6 +2956,7 @@ _chat_cmds() {
           echo " ASCII must only use ASCII chars"
           echo " Command will complete with files in ~/ascii or local paths"
           echo " Delete function will delete your art since your last /ascii cmd only"
+          echo " Edit function will let you edit [~/ascii/]FILE"
           echo
           echo " Put spaces after backslashes at end of line"
           echo " Include end of line at end of file"
@@ -3462,7 +3507,7 @@ _chat() {
     if [[  " /rarity " == " $3 " ]]; then conditionals+=($(echo -n fav)); fi
     COMPREPLY=($(compgen -W "${conditionals[@]}" -- ${2}));
   fi
-  if [[ " /ascii " =~ " $3 " && "${#COMP_WORDS[@]}" == "3" ]]; then
+  if [[ " /ascii " =~ " ${COMP_WORDS[1]} " && ( "${#COMP_WORDS[@]}" == "3" || ( "${COMP_WORDS[2]}" == "edit" && "${#COMP_WORDS[@]}" == "4" ) ) ]]; then
     # Tried to color ascii files separate from path completion - not working
     #asciis=($(echo "\033[1;34m${asciis[@]}\033[00m"))
     #asciis=(${asciis[@]/#/"\\033[1;34m"})
@@ -3482,6 +3527,7 @@ _chat() {
     if [[ -d "/$BOOMUSERDIR/$USER/ascii" ]]; then
       local asciis=($(\ls -1 /$BOOMUSERDIR/$USER/ascii))
       local asciiopts=($(declare -f _chat_cmds | sed -ne '/^\s.*)$/ s/\s*\/ascii_\(.*\)_)/\1/p' | grep -v [*_] | grep -v '\(all\)'))
+      [[ "${COMP_WORDS[2]}" == "edit" ]] && asciiopts=()
       COMPREPLY=($(compgen -W "${asciis[*]} ${asciiopts[*]}" -- $2))
     fi
     return
@@ -3622,6 +3668,7 @@ fi
 #TODO: maybe reward if X+ booms are imported at once to make up for missing super boom milestones (25 multiples)
 #TODO: Only persist doom if doom command is run? Currently, we persist when an error happens but notify user if automatically doomed
 #TODO: Consistently silently support help for currently unsupported `boom CMDs`
+#TODO: Use either ERROR or Error, buddy
 
 #CANCELLEDTODO: happy/sad boombot based on boombot mode activity: lots of work for what
 #CANCELLEDTODO: more boom mult situations?: need to not overdo mult... goal is avgs under 5 mostly, don't want to cheapen super booms

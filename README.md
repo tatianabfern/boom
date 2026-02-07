@@ -92,7 +92,7 @@ Uninstallation is very straightforward. To uninstall all files created outside o
 
 
 ## Docs
-The below boomdocs output was generated as of patch 2.9.4:
+The below boomdocs output was generated as of patch 2.9.7:
 
 ```text
 Commands in the .boomrc suite:
@@ -145,7 +145,7 @@ Commands in the .boomrc suite:
 		see `boomdocs` for other boom-related command help
 		use options below in place of <cmd> <opts>
 
-		avg [CMD]
+			avg [CMD] 
 			runs boomavg with optional CMD arg
 		admins
 			lists information about the install's admins and admin capabilities
@@ -216,11 +216,12 @@ Commands in the .boomrc suite:
 				see the rarity of a NUM length drought
 				defaults to showing rarity of your current drought
 				add fav positional arg for favorite odds
-		env [exit | help]
+		env [exit | refresh | help]
 			source the boom env to allow running boom commands with completion without the preceeding `boom`
 			aliases created by this command will be printed to the terminal
 			this will not overwrite existing commands
 			exit will unalias env commands and help will print this help
+			refresh will exit and re-enter the env - this is useful if an env command is added/changed/removed
 	
 			add `boom env &>/dev/null` to your .bashrc to start terminals with the boom env sourced!
 		favorite [entries]
@@ -228,11 +229,13 @@ Commands in the .boomrc suite:
 			BoomBot's favorite has the odds of a random boom slashed by 1/3!
 			get random booms to increase the odds of being the favorite tomorrow!
 			add entries keyword to view current entries per user for tomorrow's drawing!
-		goal [init | progress [fill | HEIGHT] | stats | help]
+		goal [contributors | init | progress [fill | HEIGHT] | stats | help]
 			initialize and view status of boom goals!
 			boom goals are dynamically set targets of booms collected through random command hits!
 			achieve the boom goal and BoomBot will choose everyone as its favorite for a day!
 	
+			contributors
+				see contributor counts towards most recent goal from stats!
 			init
 				admin only - will initialize a new 7-14 day goal for the install, factoring in past pass/fail stats
 			progress [fill | HEIGHT]
@@ -240,7 +243,7 @@ Commands in the .boomrc suite:
 				HEIGHT positional arg changes height of goal display (default 20)
 				fill positional arg automatically sets HEIGHT to its max
 			stats
-				show brief summary of goal progress and contributors directly in terminal
+				show brief summary of goal progress and contributors directly in terminal!
 			help
 				show boom goal help
 		hall
@@ -344,9 +347,12 @@ Commands in the .boomrc suite:
 ```
 
 ## Patch Notes
-The below patchnotes output was generated as of patch 2.9.4:
+The below patchnotes output was generated as of patch 2.9.7:
 
 ```text
+# 2.9.7  - add chat /ascii edit
+# 2.9.6  - add boom env refresh
+# 2.9.5  - boom docs are now paginated with less if available and longer than a page
 # 2.9.4  - boom admins/migrate commands added
 # 2.9.3  - completion cleanup - chat edit should auto-add backslashes outside of env
 # 2.9.2  - finally de-duplicate chat completion - boom calls chat's completion function
