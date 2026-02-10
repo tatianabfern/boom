@@ -11,3 +11,25 @@
 
     --background-image-url: url('../assets/media/rose.png');
 }
+
+/* Cursive Font */
+@font-face {
+    font-family: 'Cedarville Cursive';
+    src: url('../../assets/fonts/CedarvilleCursive/CedarvilleCursive-Regular.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+    font-size: 4rem;
+}
+
+h1 {
+    font-family: 'Cedarville Cursive', cursive;
+}
+
+body {
+    text-shadow:
+       -.5px -.5px 0 #0e1a1caa,
+        .5px -.5px 0 #0e1a1caa,
+       -.5px  .5px 0 #0e1a1caa,
+        .5px  .5px 0 #0e1a1caa;
+}
+

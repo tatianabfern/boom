@@ -232,6 +232,7 @@
 # 2.9.5  - boom docs are now paginated with less if available and longer than a page
 # 2.9.6  - add boom env refresh
 # 2.9.7  - add chat /ascii edit
+# 2.9.8  - add Valentine's holiday theme
 
 DOOMBOOM=
 if [ -z "$USER" ]; then
@@ -1233,7 +1234,7 @@ alias boomhelp="_boomIntroTxt flag"
 # "\t\tsee \`boomdocs\` for other boom-related command help";
 # "\t\tuse options below in place of <cmd> <opts>";
 # "";
-# "$pagertab$(bash -l -c "source $BOOMCFGFILE 2>/dev/null; export BOOMCFGFILE=$BOOMCFGFILE; source /$BOOMUSERDIR/$BOOMBOSS/$BOOMRCS/.boomdocsrc 2>/dev/null; _boomrcman _boom-.*")";
+# "$(bash -l -c "source $BOOMCFGFILE &>/dev/null; export BOOMCFGFILE=$BOOMCFGFILE; source /$BOOMUSERDIR/$BOOMBOSS/$BOOMRCS/.boomdocsrc &>/dev/null; _boomrcman _boom-.*")";
 # "\t\t${B}help${N}\n\t\t\tprints this help message";
 ###
 ###SubFunction _boom-avg

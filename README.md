@@ -92,7 +92,7 @@ Uninstallation is very straightforward. To uninstall all files created outside o
 
 
 ## Docs
-The below boomdocs output was generated as of patch 2.9.7:
+The below boomdocs output was generated as of patch 2.9.8:
 
 ```text
 Commands in the .boomrc suite:
@@ -145,7 +145,7 @@ Commands in the .boomrc suite:
 		see `boomdocs` for other boom-related command help
 		use options below in place of <cmd> <opts>
 
-			avg [CMD] 
+		avg [CMD] 
 			runs boomavg with optional CMD arg
 		admins
 			lists information about the install's admins and admin capabilities
@@ -347,9 +347,10 @@ Commands in the .boomrc suite:
 ```
 
 ## Patch Notes
-The below patchnotes output was generated as of patch 2.9.7:
+The below patchnotes output was generated as of patch 2.9.8:
 
 ```text
+# 2.9.8  - add Valentine's holiday theme
 # 2.9.7  - add chat /ascii edit
 # 2.9.6  - add boom env refresh
 # 2.9.5  - boom docs are now paginated with less if available and longer than a page

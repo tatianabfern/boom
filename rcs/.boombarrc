@@ -32,6 +32,10 @@ _in_altscreen() {
 boombar() {
   if [[ "$DOOMBOOM" == "yes" ]]; then echo bash: boombar: command not found; return; fi
 
+  # Exit if not in interactive terminal
+  [[ $- != *i* ]] && return
+  [[ ! -t 1 ]] && return
+
   _boombarinitterm() {
     printf '\n' # ensure we have space for the scrollbar
       local cursorpos cols

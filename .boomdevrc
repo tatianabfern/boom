@@ -5,7 +5,7 @@
 # "\t\tcommand to simplify the boom development workflow";
 # "\t\tuse options below in place of <cmd>";
 # "";
-# "$pagertab$(bash -l -c "BOOMCFGFILE=$BOOMCFGFILE _boomrcman _boomdev-.*")";
+# "$(bash -l -c "BOOMCFGFILE=$BOOMCFGFILE _boomrcman _boomdev-.*")";
 # "\t\t${B}help${N}\n\t\t\tprints this help message";
 ###
 ###SubFunction _boomdev-commit
