@@ -64,11 +64,11 @@ if [[ "$month" == "01" && $day -le 7 ]] || [[ "$month$day" == "1231" ]]; then
 fi
 
 #########################
-### 🧡 Valentine's 🧡 ###
+### 💕 Valentine's 💕 ###
 #########################
 
 if [[ "$month" == "02" && $day =~ 1[3-5] ]]; then
-  _BE_BOOM="🧡"
+  _BE_BOOM="💕"
   _BE_HOLE="🥀"
   _BE_BOT="👰" # we want man with veil here when that gets added
   _BE_SUPER="💖"

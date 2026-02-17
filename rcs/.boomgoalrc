@@ -370,7 +370,10 @@ _boomgoal() {
   }
 
   # Silently support help
-  if [[ "$1" == "help" ]]; then boomdocs boom-goal; return; fi
+  if [[ " docs help " =~ " $1 " ]]; then
+    declare -f _boomdoccer &>/dev/null && _boomdoccer goal || boomdocs boom-goal
+    return
+  fi
 
   case "_$1_" in
     _init_)
@@ -431,17 +434,19 @@ _boomgoal() {
     _contributors_)
       local print=on
       local prefix="$_BE_BOOM "
+      local sortcol=4
     ;&
     __contributors__)
       local linelen="$(($(wc -L < <(awk '{print $1}' $_boomGoalContrib))+2))"
       (( linelen < 5 )) && linelen=5
+      local col=${sortcol:-3}
 
       [[ -n "$print" ]] && echo "$(bang 2) Goal Contributors $(bang 2)"
       printf "%s%${linelen}s | %s\n" "$prefix" "USER" "BOOMS"
       printf "%s%${linelen}s-|-%s\n" "$prefix" "-----" "------"
       while read line; do
         printf "%s%${linelen}s | %s\n" "$prefix" $line
-      done <$_boomGoalContrib | sort -nr -k3
+      done <$_boomGoalContrib | sort -nr -k$col
       printf "%s%${linelen}s-|-%s\n" "$prefix" "-----" "------"
       [[ -n "$print" ]] && echo "$(bang 3)  Keep it up!  $(bang 3)"
     ;;
@@ -472,11 +477,7 @@ _boomgoal() {
         local milestone=$1
 
         if (( oldpct < milestone )) && (( pct >= milestone )); then
-          if (( milestone == 100 )); then
-            echo $_BE_BOOM🌡️$_BE_BOOM everyone just completed the boom goal! $_BE_BOOM🌡️$_BE_BOOM >> $_boomUserLog
-          else
-            echo $_BE_BOOM🌡️$_BE_BOOM everyone just hit $milestone% of the boom goal! $_BE_BOOM🌡️$_BE_BOOM >> $_boomUserLog
-          fi
+          echo $_BE_BOOM🌡️$_BE_BOOM everyone just hit $milestone% of the boom goal! $_BE_BOOM🌡️$_BE_BOOM >> $_boomUserLog
         fi
       }
 
@@ -485,6 +486,9 @@ _boomgoal() {
       checkMilestone 75  2>/dev/null
       checkMilestone 90  2>/dev/null
       checkMilestone 100 2>/dev/null
+      checkMilestone 150 2>/dev/null
+      checkMilestone 200 2>/dev/null
+      checkMilestone 500 2>/dev/null
       unset checkMilestone &>/dev/null
     ;;
     __reward__)

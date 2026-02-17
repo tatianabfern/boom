@@ -317,7 +317,9 @@ _boompoll() {
         local reply=()
         local wordCount=${#words[@]}
         if [[ $wordCount -le 1 ]]; then
+          set -o noglob
           reply=($(compgen -W "t a d e h m n o p q s ?" -- $cur))
+          set +o noglob
         elif [[ " d del delete " =~ " $prev " ]]; then
           while read line; do
             # compgen -W "" -- $2 but homemade bc multiple word resps
@@ -340,7 +342,7 @@ _boompoll() {
           fi
         fi
 
-        for word in ${reply[@]}; do echo 0 $word >>$hostfile; done
+        (set -o noglob; for word in ${reply[@]}; do echo 0 $word >>$hostfile; done; set +o noglob)
           # 0 in case comp starts with num
           # seq to support multi word args
 
@@ -746,7 +748,7 @@ _boompoll() {
       [[ -n "$BOOMSTATTRACKING" ]] && _boomStatInc $USER 15
     ;;
     _help_)
-      boomdocs boom-poll
+      declare -f _boomdoccer &>/dev/null && _boomdoccer poll || boomdocs boom-poll
     ;;
   esac
 }

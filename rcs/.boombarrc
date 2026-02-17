@@ -36,6 +36,8 @@ boombar() {
   [[ $- != *i* ]] && return
   [[ ! -t 1 ]] && return
 
+  local helpterm=$([[ " $BOOMENV " =~ " bar " ]] && echo bar || echo boombar)
+
   _boombarinitterm() {
     printf '\n' # ensure we have space for the scrollbar
       local cursorpos cols
@@ -109,9 +111,13 @@ boombar() {
       else echo Nothing to do
       fi
     ;;
+    docs_) ;&
+    help_)
+      boomdocs $helpterm
+    ;;
     *)
-      # Put help here
-      echo Nothing to do
+      echo -e "Error: option \"$2\" not found"
+      boomdocs $helpterm
     ;;
   esac
 }

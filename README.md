@@ -92,7 +92,7 @@ Uninstallation is very straightforward. To uninstall all files created outside o
 
 
 ## Docs
-The below boomdocs output was generated as of patch 2.9.8:
+The below boomdocs output was generated as of patch 2.9.9:
 
 ```text
 Commands in the .boomrc suite:
@@ -166,13 +166,13 @@ Commands in the .boomrc suite:
 				see amount of booms each user has received today - same as `chat /boomstoday` but the output is sorted
 			top [NUM]
 				see all-time top NUM (default 5) boomed commands for all users
-			help
-				show boom board help
 			CMD
 				see avg and freq boards for specific CMD for all users
 			-
 				use this before listing input column order for the default board command
-		chat [/<cmd> | cipher | decipher | edit | env | clear | timeout | help] [COMMENT]
+			help
+				show boom board help
+		chat [/<cmd> | cipher | clear | cmds | decipher | edit | env | timeout | help] [COMMENT]
 			post COMMENT to the boom zone (http://<host>:BOOMPORT)
 			quote COMMENT in terminal or use env to avoid problematic chars in bash cmd line parsing
 			use `chat` alias to be faster
@@ -182,6 +182,8 @@ Commands in the .boomrc suite:
 				put COMMENT in code on the site
 			clear
 				save off and clear chat log from site
+			cmds
+				show chat /<cmd> help
 			decipher [NUM | CODE]
 				read last NUM (default 5) ciphered lines in code on the site
 				alternatively, input a CODE to decipher
@@ -199,11 +201,11 @@ Commands in the .boomrc suite:
 				type "exit" to exit, "?" to see boom chat help, and "help" to see chat help in env
 			timeout
 				list current chat timeouts and minutes remaining for each
-			help
-				show chat /<cmd> help
 			/<cmd>
 				if <cmd> is valid, BoomBot will reply in chat!
-				see `chat help` for valid <cmd> values!
+				see `chat cmds` for valid <cmd> values!
+			help
+				show `boomdocs boom chat`
 		conf
 			view configuration options and commands for the boom suite!
 		drought [longest | rarity [fav] [NUM]]
@@ -315,10 +317,10 @@ Commands in the .boomrc suite:
 		if you want to run a command in the prompt, set BOOMBOTPROMPTCMD to the desired command in .bashrc
 		the command will be validated and run, and its output will show after BOOMBOTPROMPT and before ' > '
 		the command should be set after sourcing .boomrc - default is unset
-	chat [/<cmd> | cipher | decipher | edit | env | clear | timeout | help] [COMMENT]
+	chat [/<cmd> | cipher | clear | cmds | decipher | edit | env | timeout | help] [COMMENT]
 		quick command to execute `boom chat`
 		this command does not get stored in bash history
-		see `boomdocs boom chat` and `boom chat help` for more detailed help
+
 	boom{exec | ssh} [USER@]NAME [START-DIR]
 		ssh as USER or BOOMCONTS (default 'sudo docker') exec to host/container at NAME, bringing the boom in and out with you!
 		the created session will cd to START-DIR on startup if provided
@@ -347,9 +349,10 @@ Commands in the .boomrc suite:
 ```
 
 ## Patch Notes
-The below patchnotes output was generated as of patch 2.9.8:
+The below patchnotes output was generated as of patch 2.9.9:
 
 ```text
+# 2.9.9  - globally treat calling `CMD docs` the same as `CMD help` - `boomdocs CMD` is still preferred
 # 2.9.8  - add Valentine's holiday theme
 # 2.9.7  - add chat /ascii edit
 # 2.9.6  - add boom env refresh

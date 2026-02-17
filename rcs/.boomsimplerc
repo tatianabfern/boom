@@ -261,6 +261,7 @@ _checkForBoomImports() {
             echo "Congratulations! You have boomed $currtot times!"
           fi
           _boomlog $cmd $score $remotehost
+          declare -f _boomgoal &>/dev/null && _boomgoal _inc_ $score 2>/dev/null & disown # disown in case takes a while
 
           # Add entry for favor drawing if favor has been rolled for the day
           local nofavor=

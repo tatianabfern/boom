@@ -233,6 +233,7 @@
 # 2.9.6  - add boom env refresh
 # 2.9.7  - add chat /ascii edit
 # 2.9.8  - add Valentine's holiday theme
+# 2.9.9  - globally treat calling `CMD docs` the same as `CMD help` - `boomdocs CMD` is still preferred
 
 DOOMBOOM=
 if [ -z "$USER" ]; then
@@ -863,7 +864,9 @@ _boommeterrunner() {
       fi
     else
       echo -n $(($(cat $_boomDrought)+1)) > $_boomDrought
-      if [[ "$(cat $_boomDrought)" -ge "45" && "$(($(cat $_boomDrought) % 5))" == "0" ]]; then
+      if [[ "$(cat $_boomDrought)" -ge "70" && "$(($(cat $_boomDrought) % 5))" == "0" ]]; then
+        echo "$_BE_HOLE$_BE_HOLE$_BE_HOLE BOOM FAMINE! You haven't had a random boom in $(cat $_boomDrought) commands! $_BE_HOLE$_BE_HOLE$_BE_HOLE"
+      elif [[ "$(cat $_boomDrought)" -ge "45" && "$(($(cat $_boomDrought) % 5))" == "0" ]]; then
         echo "$_BE_HOLE$_BE_HOLE$_BE_HOLE BOOM DROUGHT! You haven't had a random boom in $(cat $_boomDrought) commands! $_BE_HOLE$_BE_HOLE$_BE_HOLE"
       elif [[ "$(cat $_boomDrought)" -eq "40" ]]; then
         echo "$_BE_HOLE🚨$_BE_HOLE DROUGHT WATCH! $USER is on course for a drought! $_BE_HOLE🚨$_BE_HOLE" >> $_boomUserLog
@@ -912,8 +915,35 @@ boommeter() {
   local dispscore=$score
   local result=""
 
-  # Mult if quest complete
-  local mult=$($logrun && _boomquest $1)
+  # Quest reroll here so can disown
+  _rerollquest() {
+    local cmds=()
+    local minusers=$(($(wc -l <$_boomUsers)/2+1))
+    while read user; do
+      local rankfile=/$BOOMUSERDIR/$user/$BOOMINSTALL/.boomrankings
+      if [ ! -r "$rankfile" ]; then continue; fi
+      while read line; do
+        cmds+=($(echo $line | awk '{print $1}'))
+      done < $rankfile
+    done < $_boomUsers
+    # Assumes under 19 users
+    cmds=($(echo "${cmds[@]}" | sed -e 's/ /\n/g' | sort | uniq -c | grep "^[ ]\+[$minusers-9]" | awk '{print $2}'))
+    if [[ ${#cmds[@]} -gt 0 ]]; then
+      openssl dgst -sha256 <<<"${cmds[$RANDOM % ${#cmds[@]}]}" | awk '{print $2}' > $_boomQuest
+      echo "boombot: $_BE_BOT A new boom quest is active!" >> $_boommeterLog
+    fi
+  }
+  local mult
+  if $logrun; then
+    if [ "$(cat $_boomQuest)" == "$(openssl dgst -sha256 <<<"$1" | awk '{print $2}')" ]; then
+      _rerollquest & disown
+      mult=2
+    fi
+    if [ "$(TZ=$BOOMTZ date -d @$(stat -c %Y $_boomQuest) +%d)" != "$(TZ=$BOOMTZ date +%d)" ]; then
+      _rerollquest & disown
+    fi
+  fi
+  unset _rerollquest &>/dev/null
   if [[ -n "$mult" ]]; then
     echo "Congratulations! You completed the boom quest!"
     [[ -n "$BOOMSTATTRACKING" ]] && _boomStatInc $USER 11
@@ -1076,34 +1106,6 @@ _boomhog() {
   fi
   [[ -n "$BOOMSTATTRACKING" ]] && _boomStatComp $USER 13 $streak
 }
-_boomquest() {
-  _rerollquest() {
-    local cmds=()
-    local minusers=$(($(wc -l <$_boomUsers)/2+1))
-    while read user; do
-      local rankfile=/$BOOMUSERDIR/$user/$BOOMINSTALL/.boomrankings
-      if [ ! -r "$rankfile" ]; then continue; fi
-      while read line; do
-        cmds+=($(echo $line | awk '{print $1}'))
-      done < $rankfile
-    done < $_boomUsers
-    # Assumes under 19 users
-    cmds=($(echo "${cmds[@]}" | sed -e 's/ /\n/g' | sort | uniq -c | grep "^[ ]\+[$minusers-9]" | awk '{print $2}'))
-    if [[ ${#cmds[@]} -gt 0 ]]; then
-      openssl dgst -sha256 <<<"${cmds[$RANDOM % ${#cmds[@]}]}" | awk '{print $2}' > $_boomQuest
-      echo "boombot: $_BE_BOT A new boom quest is active!" >> $_boommeterLog
-    fi
-  }
-  if [ "$(cat $_boomQuest)" == "$(openssl dgst -sha256 <<<"$1" | awk '{print $2}')" ]; then
-    _rerollquest & disown
-    echo 2
-    return
-  fi
-  if [ "$(TZ=$BOOMTZ date -d @$(stat -c %Y $_boomQuest) +%d)" != "$(TZ=$BOOMTZ date +%d)" ]; then
-    _rerollquest & disown
-    return
-  fi
-}
 _jsonifyboomavgs() {
   # Could use jq for the jsons here but unsure if systems will have it
   [ -z "$userList" ] && local userList=$(<$_boomUsers)
@@ -1262,24 +1264,26 @@ alias boomhelp="_boomIntroTxt flag"
 # "\t\t${B}full${N}\n\t\t\tsee full chart of boom avgs and freqs including cmds only boomed by one user";
 # "\t\t${B}today${N}\n\t\t\tsee amount of booms each user has received today - same as \`chat /boomstoday\` but the output is sorted";
 # "\t\t${B}top${N} [NUM]\n\t\t\tsee all-time top NUM (default 5) boomed commands for all users";
-# "\t\t${B}help${N}\n\t\t\tshow boom board help";
 # "\t\tCMD\n\t\t\tsee avg and freq boards for specific CMD for all users";
 # "\t\t${B}-${N}\n\t\t\tuse this before listing input column order for the default board command";
+# "\t\t${B}help${N}\n\t\t\tshow boom board help";
 ###
 ###SubFunction _boom-chat
 ###ExcFunction _boom-chat-cipher
+###ExcFunction _boom-chat-cmds
 ###ExcFunction _boom-chat-decipher
 ###ExcFunction _boom-chat-edit
 ###ExcFunction _boom-chat-env
 ###ExcFunction _boom-chat-clear
 ###ExcFunction _boom-chat-timeout
-# "\t${B}boom-chat${N} [${B}/${N}<cmd> | ${B}cipher${N} | ${B}decipher${N} | ${B}edit${N} | ${B}env${N} | ${B}clear${N} | ${B}timeout${N} | ${B}help${N}] [COMMENT]";
+# "\t${B}boom-chat${N} [${B}/${N}<cmd> | ${B}cipher${N} | ${B}clear${N} | ${B}cmds${N} | ${B}decipher${N} | ${B}edit${N} | ${B}env${N} | ${B}timeout${N} | ${B}help${N}] [COMMENT]";
 # "\t\tpost COMMENT to the boom zone ($BOOMSITE)";
 # "\t\tquote COMMENT in terminal or use env to avoid problematic chars in bash cmd line parsing";
 # "\t\tuse \`chat\` alias to be faster";
 # "\t\tmention boomusers with @";
 # "\n\t\t${B}cipher${N} COMMENT\n\t\t\tput COMMENT in code on the site";
 # "\t\t${B}clear${N}\n\t\t\tsave off and clear chat log from site";
+# "\t\t${B}cmds${N}\n\t\t\tshow chat /<cmd> help";
 # "\t\t${B}decipher${N} [NUM | CODE]";
 # "\t\t\tread last NUM (default 5) ciphered lines in code on the site";
 # "\t\t\talternatively, input a CODE to decipher";
@@ -1297,9 +1301,9 @@ alias boomhelp="_boomIntroTxt flag"
 # "\t\t\ttype \"exit\" to exit, \"?\" to see boom chat help, and \"help\" to see chat help in env";
 # "\t\t${B}timeout${N}";
 # "\t\t\tlist current chat timeouts and minutes remaining for each";
-# "\t\t${B}help${N}\n\t\t\tshow chat /<cmd> help";
 # "\t\t${B}/${N}<cmd>\n\t\t\tif <cmd> is valid, BoomBot will reply in chat!";
-# "\t\t\tsee \`chat help\` for valid <cmd> values!";
+# "\t\t\tsee \`chat cmds\` for valid <cmd> values!";
+# "\t\t${B}help${N}\n\t\t\tshow \`boomdocs boom chat\`";
 ###
 ###SubFunction _boom-conf
 # "\t${B}boom-conf${N}";
@@ -1484,6 +1488,16 @@ boom() {
       lastchattested="$(tail -n 1 $_boommeterLog)"
     fi
   }
+  _boomdoccer() {
+    # Simple function to test how boomdocs should display docs
+    # If called in the env, show env docs, otherwise show boom docs
+    # Specifically handles chat vs boom-chat as well
+
+    local func
+    func="${FUNCNAME[-1]}"
+    [[ " $BOOMENV " =~ " $1 " ]] && func=$1
+    boomdocs $func $([[ "$func" == "boom" ]] && echo $1)
+  }
 
   case "$1_" in
     admins_)
@@ -1587,8 +1601,9 @@ boom() {
           echo
           /$BOOMUSERDIR/$BOOMBOSS/$BOOMINSTALL/.boomtables.py "$(_jsonifyboomdroughts | sed -re s/,?erase//g)" 3.0 $modifier
         ;;
+        board_docs_) ;&
         board_help_)
-          boomdocs boom-board
+          _boomdoccer board
         ;;
         *)
           echo Average Leaderboard
@@ -1875,13 +1890,13 @@ boom() {
             fi
             echo -n "$__chat_env_hist_idx" > /tmp/.chatenvcurridx-$USER
 
-            if [[ -n "$userInput" && " h help --help -h -help " =~ " $userInput " ]]; then
+            if [[ -n "$userInput" && " h help --help -h -help docs " =~ " $userInput " ]]; then
               _chatHelpTxt | sed -e 's|^|   |'
               echo
               echo "   \"?\" will print boom-chat help"
               echo "   \"exit\" will exit the chat env"
             elif [[ "$userInput" == "?" ]]; then
-              boomdocs boom-chat
+              _boomdoccer chat
             elif [[ -z "$userInput" ]]; then continue
             elif [[ "$userInput" =~ ^"env" ]]; then echo "   $_BE_BOT Trying to avoid env-ception here $_BE_BOT"; continue
             elif [[ "$userInput" =~ ^"/text" ]]; then
@@ -1933,13 +1948,23 @@ boom() {
         chat_vote_)
           _boompoll vote ${@:3}
         ;;
-        chat_help_)
-          _chatHelpTxt
-        ;;
         chat__)
           echo What\'s boomin?
         ;;
         chat_====_) shift ;&
+        chat_docs_) ;&
+        chat_help_)
+          if [[ " docs help " =~ " $2 " && "$#" == "2" ]]; then
+            _boomdoccer chat
+            return
+          fi
+        ;&
+        chat_cmds_)
+          if [[ " cmds " =~ " $2 " && "$#" == "2" ]]; then
+            _chatHelpTxt
+            return
+          fi
+        ;&
         *)
           # Emoji replace if user forgot to tab complete or in chat env
           local chatstr
@@ -2073,12 +2098,13 @@ boom() {
         drought__)
           echo You haven\'t hit a random boom in $(cat $_boomDrought) commands!
         ;;
+        drought_docs_) ;&
         drought_help_)
-          boomdocs boom-drought
+          _boomdoccer drought
         ;;
         *)
           echo -e "Error: option \"$2\" not found"
-          boomdocs boom-drought
+          _boomdoccer drought
         ;;
       esac
     ;;
@@ -2111,12 +2137,13 @@ boom() {
             echo Error: .boomenvrc not found
           fi
         ;;
+        env_docs_) ;&
         env_help_)
-          boomdocs boom-env
+          _boomdoccer env
         ;;
         *)
           echo -e "Error: option \"$2\" not found"
-          boomdocs boom-env
+          _boomdoccer env
         ;;
       esac
     ;;
@@ -2183,6 +2210,7 @@ boom() {
         goal_stats_)
           _boomgoal stats
         ;;
+        goal_docs_) ;&
         goal_help_) ;&
         goal_*_)
           _boomgoal $2
@@ -2310,15 +2338,16 @@ boom() {
         patchnotes_all_)
           cat $BASH_SOURCE 2>/dev/null | sed -n '/^# [0-9]\.[0-9X]\.[0-9X]\+ .*$/p'
         ;;
+        patchnotes_docs_) ;&
         patchnotes_help_)
-          boomdocs boom-patchnotes
+          _boomdoccer patchnotes
         ;;
         *)
           if [ "$2" == "current" ]; then
             echo -n " " && cat $BASH_SOURCE 2>/dev/null| sed -n '/^# [0-9]\.[0-9X]\.[0-9X]\+ .*$/p' | tail -n 1 | awk '{print $2}'
           else
             echo -e "Error: option \"$2\" not found"
-            boomdocs boom-patchnotes
+            _boomdoccer patchnotes
           fi
         ;;
       esac
@@ -2349,6 +2378,7 @@ boom() {
         poll_vote_)
           _boompoll vote ${@:3}
         ;;
+        poll_docs_) ;&
         poll_help_)
           _boompoll help
         ;;
@@ -2474,14 +2504,15 @@ boom() {
             fi
           done
         ;;
-        site_)
+        zone_site_)
           command $BOOMSITECMD $BOOMSITE &>/dev/null & disown
         ;;
         *)
-          boomdocs boom-zone
+          _boomdoccer zone
         ;;
       esac
     ;;
+    docs_) ;&
     help_)
       boomdocs boom
     ;;
@@ -2490,6 +2521,7 @@ boom() {
       echo -e "       run \`boom help\` for docs"
     ;;
   esac
+  unset _boomdoccer &>/dev/null
 }
 
 ###Function boombot
@@ -2513,6 +2545,7 @@ BOOMBOTPROMPT=' USER\033[00m@\033[1;34mHOSTNAME\033[00m PWD'
 BOOMBOTPROMPTCMD=
 _boombotprompt() { echo -e "$BOOMBOTPROMPT" | sed -e "s/HOSTNAME/$HOSTNAME/g" -e "s|PWD|$(pwd)|g" -e "s|/$BOOMUSERDIR/$USER|~|g" -e "s/USER/$(_boombotName)/g"; }
 boombot() {
+  local helpterm=$([[ " $BOOMENV " =~ " bot " ]] && echo bot || echo boombot)
   case "$1_" in
     conf_) ;&
     env_)
@@ -2525,12 +2558,13 @@ boombot() {
     _)
       _boombot $@ manual;
     ;;
+    docs_) ;&
     help_)
-      boomdocs boombot
+      boomdocs $helpterm
     ;;
     *)
       echo ERROR: $1 not recognized
-      boomdocs boombot
+      boomdocs $helpterm
     ;;
   esac
 }
@@ -2654,15 +2688,16 @@ _bbmReward() {
 
 ###Function chat
 ###ExcFunction _chat-cipher
+###ExcFunction _chat-cmds
 ###ExcFunction _chat-decipher
 ###ExcFunction _chat-edit
 ###ExcFunction _chat-env
 ###ExcFunction _chat-clear
 ###ExcFunction _chat-timeout
-# "\t${B}chat${N} [${B}/${N}<cmd> | ${B}cipher${N} | ${B}decipher${N} | ${B}edit${N} | ${B}env${N} | ${B}clear${N} | ${B}timeout${N} | ${B}help${N}] [COMMENT]";
+# "\t${B}chat${N} [${B}/${N}<cmd> | ${B}cipher${N} | ${B}clear${N} | ${B}cmds${N} | ${B}decipher${N} | ${B}edit${N} | ${B}env${N} | ${B}timeout${N} | ${B}help${N}] [COMMENT]";
 # "\t\tquick command to execute \`boom chat\`";
 # "\t\tthis command does not get stored in bash history";
-# "\t\tsee \`boomdocs boom chat\` and \`boom chat help\` for more detailed help";
+# "$([[ -n "$B" ]] && bash -l -c "BOOMCFGFILE=$BOOMCFGFILE _boomrcman boom-chat 2>/dev/null")";
 ###
 chat() {
   if [[ "$DOOMBOOM" == "yes" ]]; then echo bash: chat: command not found; return; fi
@@ -2854,6 +2889,7 @@ _chat_cmds() {
     " watches movies with all the lights on."
     " types their password in the terminal."
     " randomly booms their password."
+    " needs to take personality supplements."
   )
   local hypes=(
     " is doing a great job today."
@@ -3320,6 +3356,7 @@ _chat_cmds() {
         echo $_BE_BOT BoomBot only tells boomusers to get back to work $_BE_BOT
       fi
     ;;
+    /docs_all_) ;&
     /help_all_)
       _chatHelpTxt
       echo boombot: $(boommeter _bot needing help) >> $_boommeterLog
@@ -3370,8 +3407,8 @@ _boom() {
   fi
 
   local options suboptions
-  options=($(declare -f boom | sed -ne '/^\s.*)$/ s/\s*\(.*\)_)/\1/p' | grep -v [*_]))
-  suboptions=($(declare -f boom | sed -ne "\|^\s.*$3_.*_)$| s|\s*$3"'_\(.*\)_)|\1|p' | grep -v [*=] | grep -v '\(all\|me\|chat\|booms\)'))
+  options=($(declare -f boom | sed -ne '/^\s.*)$/ s/\s*\(.*\)_)/\1/p' | grep -v [*_] | grep -v '\(docs\)'))
+  suboptions=($(declare -f boom | sed -ne "\|^\s.*$3_.*_)$| s|\s*$3"'_\(.*\)_)|\1|p' | grep -v [*=] | grep -v '\(all\|me\|chat\|booms\|docs\)'))
 
   # Option completion exclusions
   [[ "$(TZ=$BOOMTZ date +%m)" != 12 ]] && options=("${options[@]//wrapped}")
@@ -3548,7 +3585,7 @@ _chat() {
     return
   fi
   if [[ "$2" =~ ^"/" && ("${#COMP_WORDS[@]}" == "2" || ("${#COMP_WORDS[@]}" == "3" && "$3" == "cipher")) ]]; then
-    local cmdoptions=($(declare -f _chat_cmds | sed -ne '/^\s.*)$/ s/\s*\(.*\)_all_)/\1/p' | grep -v [*_]))
+    local cmdoptions=($(declare -f _chat_cmds | sed -ne '/^\s.*)$/ s/\s*\(.*\)_all_)/\1/p' | grep -v [*_] | grep -v '\(/docs\)'))
     local adminoptions=($(declare -f _chat_cmds | sed -ne '/^\s.*)$/ s/\s*\(.*\)_admin_)/\1/p' | grep -v [*_]))
     if [[ ! " $BOOMADMINS " =~ " $USER " ]]; then
       adminoptions=()
@@ -3558,7 +3595,7 @@ _chat() {
   fi
 
   local options
-  options=($(declare -f boom | sed -ne '/^\s.*chat_.*_)$/ s/\s*chat_\(.*\)_)/\1/p' | grep -v [*=]))
+  options=($(declare -f boom | sed -ne '/^\s.*chat_.*_)$/ s/\s*chat_\(.*\)_)/\1/p' | grep -v [*=] | grep -v '\(docs\)'))
   if [ "${#COMP_WORDS[@]}" == "2" ]; then
     COMPREPLY=($(compgen -W "${options[*]}" -- $2));
   fi
