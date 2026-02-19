@@ -2696,8 +2696,7 @@ _bbmReward() {
 ###ExcFunction _chat-timeout
 # "\t${B}chat${N} [${B}/${N}<cmd> | ${B}cipher${N} | ${B}clear${N} | ${B}cmds${N} | ${B}decipher${N} | ${B}edit${N} | ${B}env${N} | ${B}timeout${N} | ${B}help${N}] [COMMENT]";
 # "\t\tquick command to execute \`boom chat\`";
-# "\t\tthis command does not get stored in bash history";
-# "$([[ -n "$B" ]] && bash -l -c "BOOMCFGFILE=$BOOMCFGFILE _boomrcman boom-chat 2>/dev/null")";
+# "\t\tthis command does not get stored in bash history$([[ -n "$B" ]] && echo && bash -l -c "BOOMCFGFILE=$BOOMCFGFILE _boomrcman boom-chat 2>/dev/null")";
 ###
 chat() {
   if [[ "$DOOMBOOM" == "yes" ]]; then echo bash: chat: command not found; return; fi

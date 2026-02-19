@@ -59,6 +59,7 @@ def build_window(lines, default_type = "log", lingering = False):
             })
         else:
             displine = line
+            log_type = default_type
 
             if line.startswith('[CIPHER] '):
                 displine = line.removeprefix('[CIPHER] ')
@@ -66,10 +67,11 @@ def build_window(lines, default_type = "log", lingering = False):
                 displine = f"*{line.removeprefix('[EDITED] ')}"
             elif line.startswith('[ASCII] '):
                 displine = line.removeprefix('[ASCII] ')
+                log_type = "ascii"
 
             logs.append({
                 "id": f"log-{idx}",
-                "type": default_type,
+                "type": log_type,
                 "hash": hash_line(displine),
                 "payload": { "text": displine.rstrip() }
             })

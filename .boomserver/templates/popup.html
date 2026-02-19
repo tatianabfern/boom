@@ -12,7 +12,16 @@
     <body>
         <div class="container">
             <h1 id="popup-header">💥💥💥 BOOM Themes 💥💥💥</h1>
-            <select id="theme-dropdown" name="themes" onchange="handleDropdownChange(this)"></select>
+
+            <div class="controls">
+                <label class="control">
+                    <span class="control-label">Filter by tag</span>
+                    <select id="tag-filter" name="tag-filter"></select>
+                </label>
+            </div>
+
+            <div id="theme-list" class="theme-list" role="listbox" aria-label="Themes"></div>
         </div>
     </body>
 </html>
+

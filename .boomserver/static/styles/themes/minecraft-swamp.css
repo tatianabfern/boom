@@ -1,0 +1,56 @@
+:root {
+    --background-color: #5757573f;
+    --primary-color: #5757571f;
+    --secondary-color: #33000000;
+
+    --text-color: #f1f1f1;
+    --text-emphasis-color: #FF5555;
+    --default-user-text-color: #55FFFF;
+    --fav-user-text-color: #FFAA00;
+    --bot-user-text-color: #FF55FF;
+
+    --background-image-url: url('../assets/media/minecraft-swamp.jpg');
+}
+
+@font-face {
+    font-family: 'Minecrafter';
+    src: url('../../assets/fonts/Minecrafter/Minecrafter.Alt.ttf') format('truetype');
+}
+
+@font-face {
+    font-family: 'Monocraft';
+    src: url('../../assets/fonts/Monocraft/Monocraft.ttf') format('truetype');
+}
+
+h1 {
+    font-family: 'Minecrafter', sans-serif;
+    font-weight: lighter;
+    text-shadow:
+    -1px -1px 0 black,
+     1px -1px 0 black,
+    -1px  1px 0 black,
+     1px  1px 0 black;
+}
+
+h2 {
+    font-size: 24px;
+    font-family: 'Minecrafter', sans-serif;
+    font-weight: lighter;
+}
+
+body {
+    text-shadow:
+    -1px -1px 0 black,
+     1px -1px 0 black,
+    -1px  1px 0 black,
+     1px  1px 0 black;
+}
+pre {
+    font-size: 12px;
+    font-family: 'Monocraft', sans-serif;
+}
+
+.ascii-art {
+    font-size: 10px;
+}
+

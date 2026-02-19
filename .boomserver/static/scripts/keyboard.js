@@ -18,7 +18,7 @@ document.addEventListener('keydown', function(event) {
     }
 
     if (event.key === "c"  && fullyLoaded) {
-        const popup = window.open("popup", "_blank", "width=600,height=400");
+        const popup = window.open("popup", "_blank", "width=640,height=560");
         popup.addEventListener("load", () => {
             popup.postMessage(
                 { "boomEmoji": boomEmoji },

@@ -240,3 +240,7 @@ pre {
     font-weight: bold;
 }
 
+/* themes can change this class to only change ascii */
+.ascii-art {
+}
+

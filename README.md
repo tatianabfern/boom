@@ -320,7 +320,6 @@ Commands in the .boomrc suite:
 	chat [/<cmd> | cipher | clear | cmds | decipher | edit | env | timeout | help] [COMMENT]
 		quick command to execute `boom chat`
 		this command does not get stored in bash history
-
 	boom{exec | ssh} [USER@]NAME [START-DIR]
 		ssh as USER or BOOMCONTS (default 'sudo docker') exec to host/container at NAME, bringing the boom in and out with you!
 		the created session will cd to START-DIR on startup if provided

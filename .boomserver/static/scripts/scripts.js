@@ -466,7 +466,7 @@ function updateContents() {
         if (username) {
             if (username.toLowerCase().includes('bot')) {
                 className = 'username-bot';
-            } else if (username.includes(boomFavUsername)) {
+            } else if (username.includes(boomFavUsername) || boomFavUsername === "everyone") {
                 className = 'username-fav';
             } else {
                 className = 'username';
@@ -487,7 +487,7 @@ function updateContents() {
         if (username) {
             if (username.toLowerCase().includes('bot')) {
                 className = 'username-bot';
-            } else if (username.includes(boomFavUsername)) {
+            } else if (username.includes(boomFavUsername) || boomFavUsername === "everyone") {
                 className = 'username-fav';
             } else {
                 className = 'username';
@@ -754,7 +754,7 @@ function renderLogItem(payload) {
         let className = "";
 
         if (username.toLowerCase().includes('bot')) className = 'username-bot';
-        else if (username.includes(boomFavUsername)) className = 'username-fav';
+        else if (username.includes(boomFavUsername) || boomFavUsername === "everyone") className = 'username-fav';
         else className = 'username';
 
         if (wordElements[index]) wordElements[index].className = className;
@@ -772,7 +772,7 @@ function renderLogItem(payload) {
     return lineElement;
 }
 
-function renderChatItem(payload) {
+function renderChatItem(payload, type='chat') {
     const line = payload.text;
     const lineElement = document.createElement('div');
 
@@ -790,7 +790,7 @@ function renderChatItem(payload) {
             username.toLowerCase().includes('pollbot') ||
             username.toLowerCase().includes('coinbot')) {
             usernameElement.className = 'username-bot';
-        } else if (username === boomFavUsername || username === "*" + boomFavUsername) {
+        } else if (username === boomFavUsername || username === "*" + boomFavUsername || boomFavUsername === "everyone") {
             usernameElement.className = 'username-fav';
         } else {
             usernameElement.className = 'username';
@@ -804,6 +804,10 @@ function renderChatItem(payload) {
     const messageElement = document.createElement('span');
     const words = message.split(' ');
 
+    if (type === 'ascii') {
+        messageElement.classList.add('ascii-art')
+    }
+
     words.forEach((word, index) => {
         const wordElement = document.createElement('span');
 
@@ -816,7 +820,7 @@ function renderChatItem(payload) {
         if (/^@[a-zA-Z]+$/.test(word)) {
             if (word.toLowerCase().includes('bot')) {
                 wordElement.className = 'username-bot';
-            } else if (word === "@" + boomFavUsername || word === "@everyone") {
+            } else if (word === "@" + boomFavUsername || word === "@everyone" || boomFavUsername === "everyone") {
                 wordElement.className = 'username-fav';
             } else {
                 wordElement.className = 'username';
@@ -845,8 +849,8 @@ function renderFileFully(view) {
         let el;
         if (item.type === 'log') {
             el = renderLogItem(item.payload);
-        } else if (item.type === 'chat') {
-            el = renderChatItem(item.payload);
+        } else if (item.type === 'chat' || item.type === 'ascii') {
+            el = renderChatItem(item.payload, item.type);
         } else if (item.type === 'poll') {
             const poll = parsePollLine(item.payload.text);
             el = poll ? renderPoll(poll) : renderChatItem(item.payload);
