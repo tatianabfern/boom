@@ -211,6 +211,9 @@
         {
             "id": "dresden",
             "name": "Dresden",
+            "painting": "View of Dresden by Moonlight",
+            "artist": "Johan Christian Dahl",
+            "yearPainted": "1839",
             "author": "Nathan and Jack",
             "userDefined": false,
             "dateAdded": "2025-12-03",
@@ -243,6 +246,9 @@
         {
             "id": "rose",
             "name": "Rose",
+            "painting": "Tea Rose",
+            "artist": "Andrii Bychev",
+            "yearPainted": "1975",
             "author": "Nathan and Daniel",
             "userDefined": false,
             "dateAdded": "2025-12-03",
@@ -259,6 +265,9 @@
         {
             "id": "dogs-playing-poker",
             "name": "Dogs Playing Poker",
+            "painting": "A Friend in Need",
+            "artist": "Cassius Marcellus Coolidge",
+            "yearPainted": "1903",
             "author": "Nathan",
             "userDefined": false,
             "dateAdded": "2026-02-02",
@@ -328,6 +337,25 @@
             "userDefined": false,
             "dateAdded": "2026-02-18",
             "tags": [ "Image", "Animated" ]
+        },
+        {
+            "id": "persistence-of-memory",
+            "name": "Persistence of Memory",
+            "painting": "The Persistence of Memory",
+            "artist": "Salvador Dalí",
+            "yearPainted": "1931",
+            "author": "Daniel",
+            "userDefined": false,
+            "dateAdded": "2026-02-21",
+            "tags": [ "Art" ]
+        },
+        {
+            "id": "simpsons-couch",
+            "name": "Simpsons",
+            "author": "Daniel",
+            "userDefined": false,
+            "dateAdded": "2026-02-21",
+            "tags": [ "Image" ]
         }
     ]
 }

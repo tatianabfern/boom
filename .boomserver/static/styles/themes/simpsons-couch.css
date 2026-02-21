@@ -1,0 +1,27 @@
+:root {
+    --background-color: #f2a7b64d;
+    --primary-color: #3a6f7a88;
+    --secondary-color: #7c5fa322;
+
+    --text-color: #ffffff;
+    --text-emphasis-color: #ffd84d;
+    --default-user-text-color: #6fe3e4;
+    --fav-user-text-color: #ffd84d;
+    --bot-user-text-color: #8ea2ff;
+
+    --background-image-url: url('../assets/media/simpsons-couch.jpg');
+}
+
+@font-face {
+    font-family: 'SimpsonFont';
+    src: url('../../assets/fonts/SimpsonFont/SimpsonFont.otf') format('truetype');
+}
+
+body {
+    text-shadow: 0 2px 0 rgba(0,0,0,0.35);
+}
+
+h1 {
+    font-family: 'SimpsonFont', sans-serif;
+}
+

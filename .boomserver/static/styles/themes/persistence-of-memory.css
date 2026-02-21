@@ -1,0 +1,13 @@
+:root {
+    --background-color: #2b34384f;
+    --primary-color: #222b3088;
+    --secondary-color: #3a3f5a22;
+
+    --text-color: #f1f0ea;
+    --text-emphasis-color: #e07a4f;
+    --default-user-text-color: #7fb8b2;
+    --fav-user-text-color: #e07a4f;
+    --bot-user-text-color: #7faed1;
+
+    --background-image-url: url('../assets/media/persistence-of-memory.jpg');
+}
