@@ -124,6 +124,14 @@ h1 {
     filter: blur(.5px) saturate(1.15) brightness(1.15);
 }
 
+#boom-header, #popup-header {
+    filter: grayscale(100%) sepia(100%) hue-rotate(-15deg) saturate(400%) blur(.5px);
+}
+
+.non-ascii-chars {
+    filter: grayscale(100%) sepia(50%) hue-rotate(-13deg) saturate(550%) blur(.5px);
+}
+
 pre {
     filter: blur(.5px) saturate(1.15) brightness(1.15);
     font-size: 12px;

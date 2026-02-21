@@ -124,6 +124,14 @@ h1 {
     filter: blur(.5px) saturate(1.15) brightness(1.15);
 }
 
+#boom-header, #popup-header {
+    filter: grayscale(100%) sepia(100%) hue-rotate(-15deg) saturate(400%) blur(.5px);
+}
+
+.non-ascii-chars {
+    filter: grayscale(100%) sepia(100%) hue-rotate(66deg) saturate(900%) blur(.5px);
+}
+
 pre {
     filter: blur(.5px) saturate(1.15) brightness(1.15);
     font-size: 12px;
@@ -163,6 +171,7 @@ pre {
 }
 
 .hover-red:hover {
+    color:yellow;
     text-shadow:
         0 0  1px rgba(255, 245, 220, .75),
         0 0  4px rgba(255, 210, 120, .65),

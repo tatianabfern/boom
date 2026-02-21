@@ -1222,7 +1222,7 @@ alias doomnow="doom; echo doomnow is deprecated - use doom"
 # "\t\tactivate the boom meter in all terminals!";
 # "\t\tthis command will re-activate the boom meter after running doom!";
 ###
-alias bringtheboom="_boombotChatCmd bringtheboom; export DOOMBOOM= ; export AUTOBOOMBOT= ; echo -n '' > $_doomTracker ; echo $(bang 2) WE BRING THE BOOM $(bang 2)"
+alias bringtheboom="_boombotChatCmd bringtheboom; export DOOMBOOM= ; export AUTOBOOMBOT= ; echo -n '' > $_doomTracker ; echo $_BE_BOOM$_BE_BOOM WE BRING THE BOOM $_BE_BOOM$_BE_BOOM"
 ###Alias boomhelp
 # "\t${B}boomhelp${N}";
 # "\t\tprint important parts of boom intro text";

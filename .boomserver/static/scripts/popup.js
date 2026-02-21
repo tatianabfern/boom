@@ -8,6 +8,21 @@ document.addEventListener('DOMContentLoaded', () => {
 let themesCache = [];
 let selectedThemeId = null;
 
+const NEW_WINDOW_DAYS = 14;
+function isThemeNew(theme) {
+    if (!theme.dateAdded) return false;
+
+    const created = new Date(theme.dateAdded).getTime();
+    if (Number.isNaN(created)) return false;
+
+    const now = Date.now();
+    const ageMs = now - created;
+
+    const windowMs = NEW_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+
+    return ageMs >= 0 && ageMs <= windowMs;
+}
+
 function ensureThemeUiExists() {
     const container = document.querySelector('.container') || document.body;
 
@@ -105,6 +120,11 @@ function buildTagFilter(themes) {
     anyOption.textContent = 'All tags';
     tagFilter.appendChild(anyOption);
 
+    const newOption = document.createElement('option');
+    newOption.value = 'new';
+    newOption.textContent = 'New';
+    tagFilter.appendChild(newOption);
+
     const tagSet = new Set();
     for (const theme of themes) {
         if (Array.isArray(theme.tags)) {
@@ -131,8 +151,20 @@ function renderThemeList(themes, tag) {
 
     const filteredThemes =
         tag && tag !== 'any'
-            ? themes.filter((t) => Array.isArray(t.tags) && t.tags.includes(tag))
+            ? tag === 'new'
+                ? themes.filter(isThemeNew)
+                : themes.filter(t => Array.isArray(t.tags) && t.tags.includes(tag))
             : themes;
+
+    // Sort by first tag then by theme name
+    const sortedThemes = [...filteredThemes].sort((a, b) => {
+        const aFirstTag = Array.isArray(a.tags) && a.tags.length ? a.tags[0] : '';
+        const bFirstTag = Array.isArray(b.tags) && b.tags.length ? b.tags[0] : '';
+        const tagCompare = aFirstTag.localeCompare(bFirstTag, undefined, { sensitivity: 'base' });
+
+        if (tagCompare !== 0) return tagCompare;
+        return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+    });
 
     if (filteredThemes.length === 0) {
         const empty = document.createElement('div');
@@ -143,7 +175,7 @@ function renderThemeList(themes, tag) {
         return;
     }
 
-    for (const theme of filteredThemes) {
+    for (const theme of sortedThemes) {
         const item = document.createElement('button');
         item.type = 'button';
         item.className = 'theme-item';
@@ -168,6 +200,8 @@ function renderThemeList(themes, tag) {
         item.setAttribute('aria-selected', isSelected ? 'true' : 'false');
 
         item.addEventListener('click', () => selectTheme(theme.id));
+
+        item.classList.toggle('new-theme', isThemeNew(theme));
 
         list.appendChild(item);
     }

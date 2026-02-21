@@ -558,6 +558,12 @@ function updateContents() {
         outputText += boomHallContent;
     }
 
+    // detectAscii but for string
+    outputText = outputText.replace(
+      /[^\x00-\x7F]+/g,
+      match => `<span class="non-ascii-chars">${match}</span>`
+    );
+
     outputElement.innerHTML = '';
     outputElement.innerHTML = outputText;
 }
@@ -566,6 +572,12 @@ window.pollDefault = false;
 window.pollUIState = {
     // pollId: true | false  (true = open)
 };
+
+function detectAscii(obj) {
+    if (! /^[\x00-\x7F]*$/.test(obj.textContent)) {
+        obj.classList.add('non-ascii-chars')
+    }
+}
 
 function parsePollLine(line) {
     line = line.trim();
@@ -746,6 +758,7 @@ function renderLogItem(payload) {
     const wordElements = line.split(" ").map(word => {
         const span = document.createElement('span');
         span.textContent = word.trim() + " ";
+        detectAscii(span);
         return span;
     });
 
@@ -828,6 +841,7 @@ function renderChatItem(payload, type='chat') {
         }
 
         wordElement.textContent = word + ' '; // This saves ASCII spacing on accident
+        detectAscii(wordElement);
         messageElement.appendChild(wordElement);
     });
 

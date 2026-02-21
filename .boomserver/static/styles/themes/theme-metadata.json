@@ -4,238 +4,272 @@
             "id": "palenight",
             "name": "Default (Palenight)",
             "author": "Material Theme",
-            "user-defined": false,
+            "userDefined": false,
+            "dateAdded": "2025-12-03",
             "tags": [ "Material" ]
         },
         {
             "id": "oceanic",
             "name": "Oceanic",
             "author": "Material Theme",
-            "user-defined": false,
+            "userDefined": false,
+            "dateAdded": "2025-12-03",
             "tags": [ "Material" ]
         },
         {
             "id": "darker",
             "name": "Darker",
             "author": "Material Theme",
-            "user-defined": false,
+            "userDefined": false,
+            "dateAdded": "2025-12-03",
             "tags": [ "Material" ]
         },
         {
             "id": "lighter",
             "name": "Lighter",
             "author": "Material Theme",
-            "user-defined": false,
+            "userDefined": false,
+            "dateAdded": "2025-12-03",
             "tags": [ "Material" ]
         },
         {
             "id": "deep-ocean",
             "name": "Deep Ocean",
             "author": "Material Theme",
-            "user-defined": false,
+            "userDefined": false,
+            "dateAdded": "2025-12-03",
             "tags": [ "Material" ]
         },
         {
             "id": "forest",
             "name": "Forest",
             "author": "Material Theme",
-            "user-defined": false,
+            "userDefined": false,
+            "dateAdded": "2025-12-03",
             "tags": [ "Material" ]
         },
         {
             "id": "sky-blue",
             "name": "Sky Blue",
             "author": "Material Theme",
-            "user-defined": false,
+            "userDefined": false,
+            "dateAdded": "2025-12-03",
             "tags": [ "Material" ]
         },
         {
             "id": "sandy-beach",
             "name": "Sandy Beach",
             "author": "Material Theme",
-            "user-defined": false,
+            "userDefined": false,
+            "dateAdded": "2025-12-03",
             "tags": [ "Material" ]
         },
         {
             "id": "volcano",
             "name": "Volcano",
             "author": "Material Theme",
-            "user-defined": false,
+            "userDefined": false,
+            "dateAdded": "2025-12-03",
             "tags": [ "Material" ]
         },
         {
             "id": "space",
             "name": "Space",
             "author": "Material Theme",
-            "user-defined": false,
+            "userDefined": false,
+            "dateAdded": "2025-12-03",
             "tags": [ "Material" ]
         },
         {
             "id": "monokai-pro",
             "name": "Monokai Pro",
             "author": "Material Theme",
-            "user-defined": false,
+            "userDefined": false,
+            "dateAdded": "2025-12-03",
             "tags": [ "Material" ]
         },
         {
             "id": "dracula",
             "name": "Dracula",
             "author": "Material Theme",
-            "user-defined": false,
+            "userDefined": false,
+            "dateAdded": "2025-12-03",
             "tags": [ "Material" ]
         },
         {
             "id": "github-dark",
             "name": "Github Dark",
             "author": "Material Theme",
-            "user-defined": false,
+            "userDefined": false,
+            "dateAdded": "2025-12-03",
             "tags": [ "Material" ]
         },
         {
             "id": "github-light",
             "name": "Github Light",
             "author": "Material Theme",
-            "user-defined": false,
+            "userDefined": false,
+            "dateAdded": "2025-12-03",
             "tags": [ "Material" ]
         },
         {
             "id": "arc-dark",
             "name": "Arc Dark",
             "author": "Material Theme",
-            "user-defined": false,
+            "userDefined": false,
+            "dateAdded": "2025-12-03",
             "tags": [ "Material" ]
         },
         {
             "id": "one-dark",
             "name": "One Dark",
             "author": "Material Theme",
-            "user-defined": false,
+            "userDefined": false,
+            "dateAdded": "2025-12-03",
             "tags": [ "Material" ]
         },
         {
             "id": "one-light",
             "name": "One Light",
             "author": "Material Theme",
-            "user-defined": false,
+            "userDefined": false,
+            "dateAdded": "2025-12-03",
             "tags": [ "Material" ]
         },
         {
             "id": "solarized-light",
             "name": "Solarized Light",
             "author": "Material Theme",
-            "user-defined": false,
+            "userDefined": false,
+            "dateAdded": "2025-12-03",
             "tags": [ "Material" ]
         },
         {
             "id": "solarized-dark",
             "name": "Solarized Dark",
             "author": "Material Theme",
-            "user-defined": false,
+            "userDefined": false,
+            "dateAdded": "2025-12-03",
             "tags": [ "Material" ]
         },
         {
             "id": "night-owl",
             "name": "Night Owl",
             "author": "Material Theme",
-            "user-defined": false,
+            "userDefined": false,
+            "dateAdded": "2025-12-03",
             "tags": [ "Material" ]
         },
         {
             "id": "light-owl",
             "name": "Light Owl",
             "author": "Material Theme",
-            "user-defined": false,
+            "userDefined": false,
+            "dateAdded": "2025-12-03",
             "tags": [ "Material" ]
         },
         {
             "id": "moonlight",
             "name": "Moonlight",
             "author": "Material Theme",
-            "user-defined": false,
+            "userDefined": false,
+            "dateAdded": "2025-12-03",
             "tags": [ "Material" ]
         },
         {
             "id": "synthwave",
             "name": "Synthwave '84",
             "author": "Material Theme",
-            "user-defined": false,
+            "userDefined": false,
+            "dateAdded": "2025-12-03",
             "tags": [ "Material" ]
         },
         {
             "id": "pastel-pink",
             "name": "Pastel Pink",
             "author": "Nathan",
-            "user-defined": false,
+            "userDefined": false,
+            "dateAdded": "2025-12-03",
             "tags": [ "Material" ]
         },
         {
             "id": "ibm-duo",
             "name": "IBM Duo",
             "author": "Nathan and Daniel",
-            "user-defined": false,
-            "tags": [ "Animated", "IBM" ]
+            "userDefined": false,
+            "dateAdded": "2025-12-05",
+            "tags": [ "IBM", "Animated" ]
         },
         {
             "id": "galaxy",
             "name": "Galaxy",
             "author": "Nathan",
-            "user-defined": false,
+            "userDefined": false,
+            "dateAdded": "2025-12-03",
             "tags": [ "Image" ]
         },
         {
             "id": "dresden",
             "name": "Dresden",
             "author": "Nathan and Jack",
-            "user-defined": false,
-            "tags": [ "Image" ]
+            "userDefined": false,
+            "dateAdded": "2025-12-03",
+            "tags": [ "Art" ]
         },
         {
             "id": "cabin",
             "name": "Cabin",
             "author": "Nathan and Daniel",
-            "user-defined": false,
+            "userDefined": false,
+            "dateAdded": "2025-12-03",
             "tags": [ "Image" ]
         },
         {
             "id": "oeschinensee",
             "name": "Oeschinensee",
             "author": "Nathan",
-            "user-defined": false,
+            "userDefined": false,
+            "dateAdded": "2025-12-03",
             "tags": [ "Image" ]
         },
         {
             "id": "fireworks",
             "name": "Fireworks",
             "author": "Nathan and Daniel",
-            "user-defined": false,
+            "userDefined": false,
+            "dateAdded": "2025-12-03",
             "tags": [ "Image" ]
         },
         {
             "id": "rose",
             "name": "Rose",
             "author": "Nathan and Daniel",
-            "user-defined": false,
-            "tags": [ "Image" ]
+            "userDefined": false,
+            "dateAdded": "2025-12-03",
+            "tags": [ "Art" ]
         },
         {
             "id": "lunar-new-year",
             "name": "Lunar New Year",
             "author": "Nathan",
-            "user-defined": false,
+            "userDefined": false,
+            "dateAdded": "2026-02-02",
             "tags": [ "Image" ]
         },
         {
             "id": "dogs-playing-poker",
             "name": "Dogs Playing Poker",
             "author": "Nathan",
-            "user-defined": false,
-            "tags": [ "Image" ]
+            "userDefined": false,
+            "dateAdded": "2026-02-02",
+            "tags": [ "Art" ]
         },
         {
             "id": "hong-kong",
             "name": "Hong Kong",
             "author": "Nathan",
-            "user-defined": false,
+            "userDefined": false,
+            "dateAdded": "2026-02-02",
             "language": "Chinese (Traditional)",
             "tags": [ "Image", "Animated" ]
         },
@@ -243,50 +277,57 @@
             "id": "minecraft-village",
             "name": "Minecraft Village",
             "author": "Nathan",
-            "user-defined": false,
-            "tags": [ "Image", "Minecraft", "New" ]
+            "userDefined": false,
+            "dateAdded": "2026-02-18",
+            "tags": [ "Minecraft" ]
         },
         {
             "id": "minecraft-birch",
             "name": "Minecraft Birch",
             "author": "Nathan",
-            "user-defined": false,
-            "tags": [ "Image", "Minecraft", "New" ]
+            "userDefined": false,
+            "dateAdded": "2026-02-18",
+            "tags": [ "Minecraft" ]
         },
         {
             "id": "minecraft-swamp",
             "name": "Minecraft Swamp",
             "author": "Nathan",
-            "user-defined": false,
-            "tags": [ "Image", "Minecraft", "New" ]
+            "userDefined": false,
+            "dateAdded": "2026-02-18",
+            "tags": [ "Minecraft" ]
         },
         {
             "id": "minecraft-moon",
             "name": "Minecraft Moon",
             "author": "Nathan",
-            "user-defined": false,
-            "tags": [ "Image", "Minecraft", "New" ]
+            "userDefined": false,
+            "dateAdded": "2026-02-18",
+            "tags": [ "Minecraft" ]
         },
         {
             "id": "ibm-amber",
             "name": "IBM Amber",
             "author": "Nathan and Daniel",
-            "user-defined": false,
-            "tags": [ "Animated", "IBM", "New" ]
+            "userDefined": false,
+            "dateAdded": "2026-02-18",
+            "tags": [ "IBM", "Animated" ]
         },
         {
             "id": "ibm-green",
             "name": "IBM Green",
             "author": "Nathan and Daniel",
-            "user-defined": false,
-            "tags": [ "Animated", "IBM", "New" ]
+            "userDefined": false,
+            "dateAdded": "2026-02-18",
+            "tags": [ "IBM", "Animated" ]
         },
         {
             "id": "aurora",
             "name": "Aurora",
             "author": "Nathan",
-            "user-defined": false,
-            "tags": [ "Image", "Animated", "New" ]
+            "userDefined": false,
+            "dateAdded": "2026-02-18",
+            "tags": [ "Image", "Animated" ]
         }
     ]
 }
