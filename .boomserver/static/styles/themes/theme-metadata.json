@@ -351,11 +351,27 @@
         },
         {
             "id": "simpsons-couch",
-            "name": "Simpsons",
+            "name": "On the Couch",
             "author": "Daniel",
             "userDefined": false,
             "dateAdded": "2026-02-21",
-            "tags": [ "Image" ]
+            "tags": [ "Simpsons" ]
+        },
+        {
+            "id": "simpsons-plant",
+            "name": "Working Hard",
+            "author": "Daniel and Josh",
+            "userDefined": false,
+            "dateAdded": "2026-02-23",
+            "tags": [ "Simpsons" ]
+        },
+        {
+            "id": "simpsons-moes",
+            "name": "Hugh Jass",
+            "author": "Daniel",
+            "userDefined": false,
+            "dateAdded": "2026-02-23",
+            "tags": [ "Simpsons" ]
         }
     ]
 }

@@ -1,7 +1,7 @@
 :root {
-    --background-color: #c77a9040;
-    --primary-color:    #5A2434BF;
-    --secondary-color:  #2a1a2e4d;
+    --background-color: #2a55634d;
+    --primary-color: #1f445286;
+    --secondary-color: #6a4a8a2e;
 
     --text-color: #ffffff;
     --text-emphasis-color: #ffd84d;
@@ -9,7 +9,7 @@
     --fav-user-text-color: #ffd84d;
     --bot-user-text-color: #8ea2ff;
 
-    --background-image-url: url('../assets/media/simpsons-couch.jpg');
+    --background-image-url: url('../assets/media/simpsons-plant.jpg');
 }
 
 @font-face {

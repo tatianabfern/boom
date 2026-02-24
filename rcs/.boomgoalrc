@@ -513,6 +513,11 @@ _boomgoal() {
         return 0
       fi
     ;;
+    __site-info__)
+      _boom_goal_inited || { echo "msg: Ask an admin to start the goal!"; return; }
+      _boom_goal_parse  || { echo "err: Could not parse goal file"; return; }
+      echo -n "state: $curr $goal $end"
+    ;;
     __)
       if ! _admin; then
         if ! _boom_goal_inited; then

@@ -276,7 +276,7 @@ _boompoll() {
       _poll_env_read_with_completion() {
         [[ -z "$USER" ]] && USER=$(whoami)
 
-        local hostfile=/tmp/.boomhostcompletion
+        local hostfile=/tmp/.boomhostcompletion-$USER
         local currfile=/tmp/.pollenvcurrline-$USER
 
         [ -f $currfile ] && \rm $currfile &>/dev/null
@@ -290,7 +290,7 @@ _boompoll() {
         bind -x '"\e[6~":"__poll_env_hist_down"' # rebind PgDown
         bind '"\C-g":complete-hostname' # complete from dynamically generated hostfile
         bind '"\C-xy":possible-hostname-completions' # print completions if multiple options
-        bind -x '"\C-xh":"__poll_env_comp /tmp/.boomhostcompletion"' # generate hostfile
+        bind -x '"\C-xh":"__poll_env_comp"' # generate hostfile
         bind '"\t":"\C-xh\C-g\C-xy"'
         echo "0 notinitialized" > $hostfile
         unset HOSTFILE # clear any already-read hosts
@@ -571,7 +571,7 @@ _boompoll() {
         _boompoll vote $voteonexit | sed -e 's/^/   /'
       fi
 
-      \rm /tmp/.boomhostcompletion &>/dev/null
+      \rm /tmp/.boomhostcompletion-$USER &>/dev/null
       \rm /tmp/.pollenvcurrline-$USER &>/dev/null
     ;;
     _list_)

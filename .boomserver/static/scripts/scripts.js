@@ -235,6 +235,7 @@ let boomBoardTopTenContent = "";
 let boomBoardDroughtContent = "";
 let boomPatchnoteContent = "";
 let boomHallContent = "";
+let boomGoalState = "";
 
 function getSiteTitle(language = "English") {
     let title = "";
@@ -435,9 +436,63 @@ async function fetchBoomHall() {
     return retVal;
 }
 
+// Generate boom goal thermometer html
+function renderThermometer(current, target, percent, end) {
+    // Roundabout way of doing this but it works
+    const thermoHeight = 296;
+    const thermoPad = 5;
+    const maxHeight = thermoHeight - thermoPad * 2;
+    const innerHeight = maxHeight * .98; // 100% is .98 so exceeding goal overflows tube a little
+    const fillHeightPx = Math.floor(innerHeight * percent);
+    const heightPct = Math.min(fillHeightPx / maxHeight, 1) * 100;
+
+    const emojiCount = (percent !== 0) ? 14*4 : 0; // This is hard-coded cols*rows amount of emojis - sorry
+    const dispDate = new Date(end*1000).toLocaleDateString("en-US", { month: "short", day: "2-digit" });
+    const booms = Array.from(
+        { length: emojiCount },
+        () => `<span class="boom-goal-emoji">${boomEmoji}</span>`
+    ).join("");
+
+    return `
+<div class="thermometer" style="height:${thermoHeight}px;"><div class="thermo-fill" style="height:${heightPct}%; padding: ${thermoPad}px ${thermoPad}px;">
+<div class="boom-overlay">${booms}</div></div>
+</div>
+<div>${current} / ${target} (${Math.floor(percent*100)}%)
+
+Ends ${dispDate}</div><br>
+`;
+}
+
+// fetch the boom goal state
+async function fetchBoomGoalState() {
+    const data = await boomFetch("/run_boom_goal_command");
+    const retVal = data.output.trim();
+
+    if (retVal.startsWith("msg:")) {
+        boomGoalState = `<div>${retVal.slice("msg: ".length)}<br></div>`;
+        return retVal;
+    }
+
+    if (retVal.startsWith("err:")) {
+        boomGoalState = `<div>Error: ${retVal.slice("err: ".length)}<br></div>`;
+        return retVal;
+    }
+
+    const [, curr, goal, end] = retVal.match(/state:\s+(\d+)\s+(\d+)\s+(.+)/);
+
+    const current = parseInt(curr, 10);
+    const target  = parseInt(goal, 10);
+
+    const percent = current / target;
+
+    boomGoalState = renderThermometer(current, target, percent, end).trim();
+
+    return retVal;
+}
+
 let windowState = {
-    contentRenderMode : "cycle", // all, avg, freq, info, cycle
-    contentRender : "all" // all, avg, freq, info
+    contentRenderMode : "cycle", // all, avg, freq, info, goal, cycle
+    contentRender : "all" // all, avg, freq, info, goal
 }
 
 function contentClick() {
@@ -452,6 +507,8 @@ function incrementStateContentRender() {
     else if (windowState.contentRender == "freq")
         windowState.contentRender = "info"
     else if (windowState.contentRender == "info")
+        windowState.contentRender = "goal"
+    else if (windowState.contentRender == "goal")
         windowState.contentRender = "all"
 }
 
@@ -459,7 +516,7 @@ function updateContents() {
     const outputElement = document.getElementById('output');
     let outputText = "";
 
-    if ([ "all", "info" ].includes(windowState.contentRender)) {
+    if ([ "all", "info", "goal" ].includes(windowState.contentRender)) {
         let username = boomLatestContent.split(" ")[1];
         let className = "";
 
@@ -476,11 +533,11 @@ function updateContents() {
         let content = boomLatestContent.replace(username,`<span class="${className}">${username}</span>`);
         outputText += content;
     }
-    if ([ "all", "info" ].includes(windowState.contentRender)) {
+    if ([ "all", "info", "goal" ].includes(windowState.contentRender)) {
         let content = boomFavoriteContent.replace(boomFavUsername,`<span class="username-fav">${boomFavUsername}</span>`);
         outputText += content;
     }
-    if ([ "all", "info" ].includes(windowState.contentRender)) {
+    if ([ "all", "info", "goal" ].includes(windowState.contentRender)) {
         let username = boomDroughtContent.split(" ")[1];
         let className = "";
 
@@ -551,7 +608,11 @@ function updateContents() {
         outputText += '<h2 style="text-align: center;">Boom Drought</h2>';
         outputText += boomBoardDroughtContent;
     }
-    if ([ "all", "info" ].includes(windowState.contentRender)) {
+    if ([ "goal" ].includes(windowState.contentRender)) {
+        outputText += '<h2 style="text-align: center;">Boom Goal</h2>';
+        outputText += boomGoalState;
+    }
+    if ([ "all", "info", "goal" ].includes(windowState.contentRender)) {
         outputText += boomPatchnoteContent;
     }
     if ([ "all", "info" ].includes(windowState.contentRender)) {
@@ -745,9 +806,10 @@ async function fetchCommandOutput() {
         fetchBoomBoardAvg(),
         fetchBoomBoardFreq(),
         fetchBoomBoardTopTen(),
+        fetchBoomGoalState(),
     ]).then((values) => {
         // console.log(values);
-        setTimeout(fetchCommandOutput,10000);
+        setTimeout(fetchCommandOutput,7000);
     });
 }
 

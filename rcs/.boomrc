@@ -261,6 +261,14 @@ if [[ $- == *f* ]]; then
   echo boomrc: ERROR: Shell globbing needs to be on for the boom to function.
   DOOMBOOM=yes
 fi
+if ! command -v openssl &>/dev/null; then
+  echo boomrc: ERROR: openssl is not a command
+  DOOMBOOM=yes
+fi
+if ! command -v bc &>/dev/null; then
+  echo boomrc: ERROR: bc is not a command
+  DOOMBOOM=yes
+fi
 
 
 # Multiple ways to have BOOMCFGFILE set:
@@ -325,16 +333,24 @@ readonly BOOM_MAXASCIILINES=${BOOM_MAXASCIILINES:-34} &>/dev/null
 readonly BOOM_MAXASCIICOLS=${BOOM_MAXASCIICOLS:-57} &>/dev/null
 _boomcmdno() {
   # All builtins
-  # Deciding to quietly support pre-4.4 here despite increased bug likelihood - install still "requires" newer bash
+  # Deciding to warn and support pre-4.4 here despite increased bug likelihood - install still "requires" newer bash
+  # Known issues on older versions:
+  #   4.3 - FUNCNAME[-1] in _boombotChatCmd causes an error
+  #   4.2 - [ -v VAR ] in boombar causes trouble bc -v is not an option to test
   local versionX_Y X Y
   versionX_Y=${BASH_VERSION%.*}
   X=${versionX_Y%.*}
   Y=${versionX_Y#*.}
   if ([ $X -eq 4 ] && [ $Y -ge 4 ]) || [ $X -gt 4 ]; then export $1=$(printf '%s' "${BOOM_MAGICPROMPT@P}")
-  else export $1=$(fc -l -1 | head -n 1 | awk '{print $1}') # this is a number
+  else
+    export $1=$(fc -l -1 | head -n 1 | awk '{print $1}') # this is a number
+    if [[ "$2" == "warnifunder" && "$BOOMWARN" != "no" ]]; then
+      echo "boomrc: WARNING: bash versions under 4.4 have not been well tested with the boomrc. Detected version is ${BASH_VERSION%.*} - Please run \`doom\`"
+      echo boomrc: Suppress this warning by sourcing with \`BOOMWARN=no source $BASH_SOURCE\`
+    fi
   fi
 }
-_boomcmdno BOOMPREV_CMDNO
+_boomcmdno BOOMPREV_CMDNO warnifunder
 
 _BE_BOOM_DEF="💥"
 _BE_HOLE_DEF="🕳️"
@@ -411,12 +427,12 @@ unset _goodEmoji
 # "\t\tthis is useful to run with \`chat \$(bang X)\` to put X booms in chat";
 ###
 bang() {
-  if [[ "$DOOMBOOM" == "yes" ]]; then echo bash: bang: command not found; return; fi
+  if [[ "$DOOMBOOM" == "yes" ]]; then echo bash: bang: command not found; return 127; fi
   for i in $(seq ${1:-1}); do echo -n $_BE_BOOM; done; echo;
 }
 
 _boomIntroTxt() {
-  if [[ "$DOOMBOOM" == "yes" && -n "$1" ]]; then echo bash: boomhelp: command not found; return; fi
+  if [[ "$DOOMBOOM" == "yes" && -n "$1" ]]; then echo bash: boomhelp: command not found; return 127; fi
   if [ -z "$1" ]; then echo $_BE_BOOM Cousin Angelo, what\'s that smell???; fi
   if [ -z "$1" ]; then echo $_BE_BOOM It\'s a piece of BOOM!!; fi
   echo $_BE_BOOM Type \`bringtheboom\` to activate the boom meter
@@ -426,7 +442,7 @@ _boomIntroTxt() {
   echo $_BE_BOOM Type \`boomavg [CMD]\` to see the average values random commands received or that of one CMD
   echo $_BE_BOOM If you just want to see some booms, \`bang [NUM]\` will print one or NUM for you - this is great in BOOM chat with \`chat \$\(bang NUM\)\`!
   echo $_BE_BOOM Don\'t worry, the boommeter will be deactivated with a simple \`doom\` command
-  if [ -z "$1" ]; then echo $_BE_BOOM Add \`source ~$BOOMBOSS/.boomrc\` and \`PROMPT_COMMAND=_boommeter\` to your .bashrc to bring the BOOM!!; fi
+  if [ -z "$1" ]; then echo $_BE_BOOM Add \`source ~$BOOMBOSS/${BOOMRC_PATH:-.boomrc}\` and \`PROMPT_COMMAND=_boommeter\` to your .bashrc to bring the BOOM!!; fi
   if [ -z "$1" ]; then echo $_BE_BOOM Ensure the PROMPT_COMMAND line comes first in your .bashrc so that this doesn\'t print every time you start a terminal; fi
   echo $_BE_BOOM To suppress random boom output by default, run \`boom silent \&\>/dev/null\` after sourcing .boomrc in your .bashrc
   echo -e "\n$_BE_BOOM Type \`boom\` to use the boom cmd - a catch-all tool for boomuser functionalities"
@@ -904,7 +920,7 @@ boommeter() {
   # If command includes super problematic chars just exit
   if $logrun && [[ "$1" =~ [![]+ ]]; then return; fi
 
-  if [[ "$DOOMBOOM" == "yes" ]]; then echo bash: boommeter: command not found; return; fi
+  if [[ "$DOOMBOOM" == "yes" ]]; then echo bash: boommeter: command not found; return 127; fi
   # Adapted from Josh
   if [ -z "$1" ]; then
     echo "Give us something to rank on the boom meter!"
@@ -1033,7 +1049,7 @@ boommeter() {
 # "\t\tthis function ranks THING on the doommeter...";
 ###
 doommeter() {
-  if [[ "$DOOMBOOM" == "yes" ]]; then echo bash: doommeter: command not found; return; fi
+  if [[ "$DOOMBOOM" == "yes" ]]; then echo bash: doommeter: command not found; return 127; fi
   if [ -z "$1" ]; then
     echo "Give us something to rank on the doom meter..."
     return 1
@@ -1060,7 +1076,7 @@ doommeter() {
 # "\t\tif CMD arg present, function will only print avg for CMD";
 ###
 boomavg() {
-  if [[ "$DOOMBOOM" == "yes" ]]; then echo bash: boomavg: command not found; return; fi
+  if [[ "$DOOMBOOM" == "yes" ]]; then echo bash: boomavg: command not found; return 127; fi
   if [ -n "$1" ]; then
     if [ -n "$(_boomavg $1)" ]; then _boomavg "$1"
     else echo $1 not found in averages!; fi
@@ -1423,7 +1439,7 @@ alias boomhelp="_boomIntroTxt flag"
 # "\t\t\tcolumns will be cut off in this view if the data is too long for the column";
 ###
 boom() {
-  if [[ "$DOOMBOOM" == "yes" ]]; then echo bash: boom: command not found; return; fi
+  if [[ "$DOOMBOOM" == "yes" ]]; then echo bash: boom: command not found; return 127; fi
   _drought_rarity() {
     local droughtodds=${2:-15}
     local bonusstr=
@@ -1803,7 +1819,7 @@ boom() {
           _chat_env_read_with_completion() {
             [[ -z "$USER" ]] && USER=$(whoami)
 
-            local hostfile=/tmp/.boomhostcompletion
+            local hostfile=/tmp/.boomhostcompletion-$USER
             local currfile=/tmp/.chatenvcurrline-$USER
 
             [ -f $currfile ] && \rm $currfile &>/dev/null
@@ -1817,7 +1833,7 @@ boom() {
             bind -x '"\e[6~":"__chat_env_hist_down"' # rebind PgDown
             bind '"\C-g":complete-hostname' # complete from dynamically generated hostfile
             bind '"\C-xy":possible-hostname-completions' # print completions if multiple options
-            bind -x '"\C-xh":"__chat_env_comp /tmp/.boomhostcompletion"' # generate hostfile
+            bind -x '"\C-xh":"__chat_env_comp"' # generate hostfile
             bind '"\t":"\C-xh\C-g\C-xy"'
             echo "0 notinitialized" > $hostfile
             unset HOSTFILE # clear any already-read hosts
@@ -1833,7 +1849,6 @@ boom() {
             local prev="${curline% *}"
             [[ "$prev" =~ " " ]] && prev="${prev##* }" # save previous word
             [[ ! "$curline" =~ ' ' ]] && prev=chat
-            local hostfile="$1"
 
             # Trick chat completion to complete for us
             COMP_WORDS=($(echo "chat $curline"))
@@ -1930,7 +1945,7 @@ boom() {
             fi
           done
 
-          \rm /tmp/.boomhostcompletion &>/dev/null
+          \rm /tmp/.boomhostcompletion-$USER &>/dev/null
           \rm /tmp/.chatenvcurrline-$USER &>/dev/null
         ;;
         chat_timeout_)
@@ -2033,6 +2048,11 @@ boom() {
       _boss && echo \# Set these to change default line/column limits for ascii
       _boss && echo BOOM_MAXASCIILINES=${BOOM_MAXASCIILINES:-34}
       _boss && echo BOOM_MAXASCIICOLS=${BOOM_MAXASCIICOLS:-57}
+      _boss && echo
+      _boss && echo \# Set this to display the correct install-specific path for users to find .boomrc
+      _boss && echo \# Users will currently see \"~$BOOMBOSS/${BOOMRC_PATH:-.boomrc}\" on first source
+      _boss && echo \# Note that this is only for display in help text
+      _boss && echo BOOMRC_PATH=${BOOMRC_PATH:-.boomrc}
       _boss && echo
       echo Optional user-defined variables to set before source:
       _boss && echo \# To globally change default user-defined vars, set them in the BOOMCFGFILE!
@@ -2543,7 +2563,7 @@ boom() {
 BOOMBOTMODE=no
 BOOMBOTPROMPT=' USER\033[00m@\033[1;34mHOSTNAME\033[00m PWD'
 BOOMBOTPROMPTCMD=
-_boombotprompt() { echo -e "$BOOMBOTPROMPT" | sed -e "s/HOSTNAME/$HOSTNAME/g" -e "s|PWD|$(pwd)|g" -e "s|/$BOOMUSERDIR/$USER|~|g" -e "s/USER/$(_boombotName)/g"; }
+_boombotprompt() { echo -e "$BOOMBOTPROMPT" | sed -e "s/HOSTNAME/$HOSTNAME/g" -e "s|PWD|$PWD|g" -e "s|/$BOOMUSERDIR/$USER|~|g" -e "s/USER/$(_boombotName)/g"; }
 boombot() {
   local helpterm=$([[ " $BOOMENV " =~ " bot " ]] && echo bot || echo boombot)
   case "$1_" in
@@ -2570,7 +2590,7 @@ boombot() {
 }
 _boombot() {
   if [[ " $@ " =~ " manual " && "$AUTOBOOMBOT" == "yes" ]]; then export AUTOBOOMBOT=no; fi
-  if [[ "$DOOMBOOM" == "yes" ]]; then echo bash: boombot: command not found; return; fi
+  if [[ "$DOOMBOOM" == "yes" ]]; then echo bash: boombot: command not found; return 127; fi
   if [[ "$1" == "exit" && "$BOOMBOTMODE" == "yes" ]]; then export PS1=${_boomRegularPs1:-'\u@\h \w $ '}; export BOOMBOTMODE=no; export AUTOBOOMBOT=no; return;
   elif [[ "$1" == "exit" ]]; then return; fi
   if [[ "$BOOMBOTMODE" == "yes" ]]; then return; fi
@@ -2699,7 +2719,7 @@ _bbmReward() {
 # "\t\tthis command does not get stored in bash history$([[ -n "$B" ]] && echo && bash -l -c "BOOMCFGFILE=$BOOMCFGFILE _boomrcman boom-chat 2>/dev/null")";
 ###
 chat() {
-  if [[ "$DOOMBOOM" == "yes" ]]; then echo bash: chat: command not found; return; fi
+  if [[ "$DOOMBOOM" == "yes" ]]; then echo bash: chat: command not found; return 127; fi
   boom chat "$@"
   if [[ ! "$(cat $_boomTracker)" =~ "chat" ]]; then
     echo "_chat" > $_boomTracker

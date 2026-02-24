@@ -8,7 +8,7 @@
 # "\t\tthis command allows the equivalent functionality of \`chat /text\` in the cmd line";
 ###
 text2ascii() {
-  if [[ "$DOOMBOOM" == "yes" ]]; then echo bash: text2ascii: command not found; return; fi
+  if [[ "$DOOMBOOM" == "yes" ]]; then echo bash: text2ascii: command not found; return 127; fi
   local word charidx
   local firstline=()
   local secondline=()

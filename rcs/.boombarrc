@@ -30,7 +30,7 @@ _in_altscreen() {
 # "\n\t\tto have the bar show up on terminal startup, add \`[[ \"\$-\" =~ \"i\" ]] && boombar\` to your .bashrc after sourcing the .boomrc!";
 ###
 boombar() {
-  if [[ "$DOOMBOOM" == "yes" ]]; then echo bash: boombar: command not found; return; fi
+  if [[ "$DOOMBOOM" == "yes" ]]; then echo bash: boombar: command not found; return 127; fi
 
   # Exit if not in interactive terminal
   [[ $- != *i* ]] && return
@@ -128,8 +128,12 @@ _boombarenv() {
     DROUGHTSTAT)
       # Call with DROUGHTSTAT
       export BOOMBAR_DROUGHTCMDS="$(cat $_boomDrought)"
-      export BOOMBAR_DROUGHTMINS="$(((${EPOCHSECONDS:-$(TZ=$BOOMTZ date +%s)}-$(stat -c %Y $_boomRankings))/60))"
-      export BOOMBAR_DROUGHTRATIO_CPM="$(echo "scale=2; $BOOMBAR_DROUGHTCMDS/$BOOMBAR_DROUGHTMINS" | bc 2>/dev/null)"
+      if [[ -f "$_boomRankings" ]]; then
+        export BOOMBAR_DROUGHTMINS="$(((${EPOCHSECONDS:-$(TZ=$BOOMTZ date +%s)}-$(stat -c %Y $_boomRankings))/60))"
+      else
+        export BOOMBAR_DROUGHTMINS=nebulous
+      fi
+      export BOOMBAR_DROUGHTRATIO_CPM="$(bc <<<"scale=2; $BOOMBAR_DROUGHTCMDS/$BOOMBAR_DROUGHTMINS" 2>/dev/null)"
       export BOOMBAR_DROUGHTRATIO_CPM="${BOOMBAR_DROUGHTRATIO_CPM:-nebulous}"
     ;;
     BBMREMARK)
@@ -144,12 +148,12 @@ _boombarenv() {
       cleanarg="${cleanarg//\&/\\\&}"
       cleanarg="${cleanarg//\$/\\\$}"
 
-      echo "export BOOMBAR_BBMREMARK=\"$cleanarg\"" > /tmp/.boombar-bbmremark
-      source /tmp/.boombar-bbmremark
+      echo "export BOOMBAR_BBMREMARK=\"$cleanarg\"" > /tmp/.boombar-bbmremark-$USER
+      source /tmp/.boombar-bbmremark-$USER
     ;;
     LASTBOOM)
       # Call with LASTBOOM <boomnum> <cmd>
-      local tmpfile=/tmp/.boombar-lastboom
+      local tmpfile=/tmp/.boombar-lastboom-$USER
       local cmd=${3//[\"\']/}
       cmd=${cmd//\\/\\\\}
       echo "export BOOMBAR_LASTBOOMS=\"$(for i in $(seq $2); do echo -n $_BE_BOOM; done)\"" > $tmpfile
@@ -210,15 +214,15 @@ _boombarenv() {
 
       if [ -v "$first" ]; then
         export BOOMBAR_BTODAY_1NUM=${!first}
-        export BOOMBAR_BTODAY_1NAME=${first##*_}
+        export BOOMBAR_BTODAY_1NAME=${first#BOOMBAR_BTODAY_}
       fi
       if [ -v "$second" ]; then
         export BOOMBAR_BTODAY_2NUM=${!second}
-        export BOOMBAR_BTODAY_2NAME=${second##*_}
+        export BOOMBAR_BTODAY_2NAME=${second#BOOMBAR_BTODAY_}
       fi
       if [ -v "$third" ]; then
         export BOOMBAR_BTODAY_3NUM=${!third}
-        export BOOMBAR_BTODAY_3NAME=${third##*_}
+        export BOOMBAR_BTODAY_3NAME=${third#BOOMBAR_BTODAY_}
       fi
     ;;
     PRINTENV)
@@ -234,7 +238,7 @@ _boombarenv() {
         fi
         echo BOOMFAV=$BOOMBAR_BOOMFAV
         echo BOOMPATCH=$BOOMBAR_BOOMPATCH
-        local btodayuser=BOOMBAR_BTODAY_$USER
+        local btodayuser=BOOMBAR_BTODAY_${USER//[.-]/_}
         [ -v "$btodayuser" ] && echo ${btodayuser#BOOMBAR_}=${!btodayuser}
         echo BTODAY_1NUM=$BOOMBAR_BTODAY_1NUM
         echo BTODAY_1NAME=$BOOMBAR_BTODAY_1NAME
@@ -250,6 +254,8 @@ _boombarenv() {
         echo LASTNUM=$BOOMBAR_LASTNUM
         echo LASTUSERBOOM=\"$BOOMBAR_LASTUSERBOOM\"
         echo
+        echo BTODAY_\<user//\[.-\]/_\> will print booms today for any specific boomuser
+        echo
         echo "Customizable Bar Content Variables:"
         echo BOOMBAR_PREFIX=\"${BOOMBAR_PREFIX:-$BOOMBAR_DEFAULT_PREFIX}\"
         echo BOOMBAR_SUFFIX=\"${BOOMBAR_SUFFIX:-$BOOMBAR_DEFAULT_SUFFIX}\"
@@ -261,8 +267,6 @@ _boombarenv() {
         echo
         echo Set BOOMBAR_BBMOFF_ALT to \"unset\" to just ignore BBMREMARK when boombot mode is off
         echo This allows for BoomBot\'s remarks to just add more text to the prefix when in BBM
-        echo
-        echo BTODAY_\<user//\[.-\]/_\> will print booms today for any specific boomuser
         echo
         echo BOOMBAR_SHORTBAR can be PREFIX, SUFFIX, or \<text\> to get subbed in when full bar is too long
       fi
@@ -283,8 +287,8 @@ _boombarupdate() {
   [[ "$customstrs" =~ "BOOMPATCH" ]] && _boombarenv BOOMINFO
   [[ "$customstrs" =~ ("LASTUSERBOOM"|"BOOMFAV") ]] && _boombarenv BOOMUSERINFO
   [[ "$customstrs" =~ "BTODAY" ]] && _boombarenv BOOMSTODAY
-  [[ -f "/tmp/.boombar-bbmremark" ]] && source /tmp/.boombar-bbmremark || export BOOMBAR_BBMREMARK=
-  [[ -f "/tmp/.boombar-lastboom" ]] && source /tmp/.boombar-lastboom
+  [[ -f "/tmp/.boombar-bbmremark-$USER" ]] && source /tmp/.boombar-bbmremark-$USER || export BOOMBAR_BBMREMARK=
+  [[ -f "/tmp/.boombar-lastboom-$USER" ]] && source /tmp/.boombar-lastboom-$USER
   BOOMBAR_OLDLINES=$LINES
 
   local barupdate prefix suffix linelen
@@ -427,5 +431,5 @@ _unstashBoombar() {
 }
 
 # Reset state on source
-[[ -n "$BOOMBARSTATE" ]] && boombar exit
+[[ -n "$BOOMBARSTATE" && -z "$DOOMBOOM" ]] && boombar exit
 

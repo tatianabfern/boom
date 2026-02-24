@@ -1,3 +1,4 @@
+popupLaunched = null;
 document.addEventListener('keydown', function(event) {
     if (event.key === ' ' && fullyLoaded) {
         incrementStateContentRender();
@@ -12,22 +13,35 @@ document.addEventListener('keydown', function(event) {
     if (event.key === 'l' && fullyLoaded) {
         if (holiday === "THANKSGIVING")
             startSeasonalSnowEffect("🍁",{sizeMin: 32, sizeMax: 64});
-        
+
         if (holiday === "CHRISTMAS")
             startSeasonalSnowEffect("❄️");
     }
 
     if (event.key === "c"  && fullyLoaded) {
-        const popup = window.open("popup", "_blank", "width=640,height=560");
+        if (popupLaunched) {
+            popupLaunched.close();
+            popupLaunched = null;
+            return;
+        }
+
+        const popup = window.open("popup", "_blank", "width=710,height=560");
+
+        if (popup === null) {
+            console.error("Popup didn't launch or was blocked");
+            return;
+        }
+
         popup.addEventListener("load", () => {
             popup.postMessage(
                 { "boomEmoji": boomEmoji },
                 "*"
             );
         });
+        popupLaunched = popup;
     }
 
-    if (event.key === "b" && fullyLoaded) {
+    if (event.key === "b" && fullyLoaded && apiKey) {
         if (hidden) {
             document.getElementById('all').style.display = 'contents';
             hidden = false;
@@ -77,4 +91,4 @@ function hideAlert() {
     const alertElement = document.getElementById('alertContainer');
 
     alertElement.style.display = 'none';
-} 
+}

@@ -65,7 +65,7 @@ _simpleboommeter() {
     elif [[ $UID -eq 0 || "$(whoami)" == "root" ]]; then
       :
     else
-      alias boomsu='echo "_boomsu" >'"$_boomTracker"'; sudo bash -c "$(declare -f _simpleboommeter _exportEmojis); export -f _simpleboommeter; export -f _exportEmojis; export '"$(_exportEmojis)"'; export BOOMCONTS='"$BOOMCONTS"'; export BOOMDEST='"$BOOMDEST"'; export BOOMHOSTUSER='"$BOOMHOSTUSER"'; export PROMPT_COMMAND='"'_simpleboommeter __auto'"'; export BOOMFIRSTRUN=boomsu; export BOOMSUUSER='"${UID:-$(id $USER --user)}"'; export BOOMSUGROUP='"${GID:-$(id $USER --group)}"'; bash -c su; echo "_boomsu" > '"$_boomTracker"'";' &>/dev/null
+      alias boomsu='echo "_boomsu" >'"$_boomTracker"'; sudo bash -c "$(declare -f _simpleboommeter _exportEmojis); export -f _simpleboommeter; export -f _exportEmojis; export '"$(_exportEmojis)"'; export BOOMCONTS='"$BOOMCONTS"' &>/dev/null; export BOOMDEST='"$BOOMDEST"'; export BOOMHOSTUSER='"$BOOMHOSTUSER"'; export PROMPT_COMMAND='"'_simpleboommeter __auto'"'; export BOOMFIRSTRUN=boomsu; export BOOMSUUSER='"${UID:-$(id $USER --user)}"'; export BOOMSUGROUP='"${GID:-$(id $USER --group)}"'; bash -c su; echo "_boomsu" > '"$_boomTracker"'";' &>/dev/null
     fi
   fi
   if [ ! -w "$_boomTracker" ]; then export BOOMFIRSTRUN=fileerased; echo boommeter detected session closure - restarting; return; fi
@@ -108,10 +108,10 @@ _simpleboommeter() {
       export BOOMPREV_CMDNO=$BOOM_CMDNO
     ;;
     __exec_)
-      if [[ "$SESSDOOMBOOM" == "yes" ]]; then echo bash: boomexec: command not found; return; fi
+      if [[ "$SESSDOOMBOOM" == "yes" ]]; then echo bash: boomexec: command not found; return 127; fi
 
       if [ -z "$2" ]; then echo Error: requires CONT-NAME; return; fi
-      command $BOOMCONTS exec -it $2 bash -c "$(declare -f _simpleboommeter _exportEmojis); export $(_exportEmojis); export BOOMCONTS=\"$BOOMCONTS\"; export BOOMDEST=\"${2#*@}\"; export -f _simpleboommeter; export -f _exportEmojis; export BOOMHOSTUSER=\"$BOOMHOSTUSER\"; export PROMPT_COMMAND='_simpleboommeter __auto'; export BOOMFIRSTRUN=chainexec; bash; _simpleboommeter __export"
+      command $BOOMCONTS exec -it $2 bash -c "$(declare -f _simpleboommeter _exportEmojis); export $(_exportEmojis); export BOOMCONTS=\"$BOOMCONTS\" &>/dev/null; export BOOMDEST=\"${2#*@}\"; export -f _simpleboommeter; export -f _exportEmojis; export BOOMHOSTUSER=\"$BOOMHOSTUSER\"; export PROMPT_COMMAND='_simpleboommeter __auto'; export BOOMFIRSTRUN=chainexec; bash; _simpleboommeter __export"
     ;;
     __export_)
       if [[ "$-" != "hBc" ]]; then echo Error: do not manually run export; return; fi
@@ -136,10 +136,10 @@ _simpleboommeter() {
       fi
     ;;
     __ssh_)
-      if [[ "$SESSDOOMBOOM" == "yes" ]]; then echo bash: boomssh: command not found; return; fi
+      if [[ "$SESSDOOMBOOM" == "yes" ]]; then echo bash: boomssh: command not found; return 127; fi
 
       if [ -z "$2" ]; then echo Error: requires [USER@]HOST arg; return; fi
-      \ssh -t $2 "$(declare -f _simpleboommeter _exportEmojis); export -f _simpleboommeter; export -f _exportEmojis; export $(_exportEmojis); export BOOMCONTS=\"$BOOMCONTS\"; export BOOMDEST=\"${2#*@}\"; export BOOMHOSTUSER=\"$BOOMHOSTUSER\"; export PROMPT_COMMAND='_simpleboommeter __auto'; export BOOMFIRSTRUN=chainssh; bash; _simpleboommeter __export"
+      \ssh -t $2 "$(declare -f _simpleboommeter _exportEmojis); export -f _simpleboommeter; export -f _exportEmojis; export $(_exportEmojis); export BOOMCONTS=\"$BOOMCONTS\" &>/dev/null; export BOOMDEST=\"${2#*@}\"; export BOOMHOSTUSER=\"$BOOMHOSTUSER\"; export PROMPT_COMMAND='_simpleboommeter __auto'; export BOOMFIRSTRUN=chainssh; bash; _simpleboommeter __export"
     ;;
     *_)
       # If command includes super problematic chars just exit
@@ -199,11 +199,12 @@ _simpleboommeter() {
 # "\t\tdynamic completion allows boomexec/boomssh to be completed both locally and in launched sessions!";
 # "\t\tall boom-related functions, env variables, and files are removed/destroyed on session closure";
 # "\t\tall boom-related commands are hidden from history in open sessions, but boomsu is still able to be boomed!";
+# "\t\tto get to an ssh host that needs ssh command line arguments, ~/.ssh/config can usually be set up such that \`boomssh <host>\` will work";
 ###
 alias boomssh='_boomsession _boomssh'
 alias boomexec='_boomsession _boomexec'
 _boomexec() {
-  DBUS_SESSION_BUS_ADDRESS= command $BOOMCONTS exec -it $1 bash -c "$(declare -f _simpleboommeter _exportEmojis); export $(_exportEmojis); export BOOMCONTS=\"$BOOMCONTS\"; export BOOMDEST=\"${1#*@}\"; export -f _simpleboommeter; export -f _exportEmojis; export BOOMHOSTUSER=\"$USER\"; export PROMPT_COMMAND='_simpleboommeter __auto'; export BOOMFIRSTRUN=yes; ${2:+cd $2; }bash; _simpleboommeter __export" | tee >(\grep -I --line-buffered ^"$_BE_BOOM" >> $_boomSession)
+  DBUS_SESSION_BUS_ADDRESS= command $BOOMCONTS exec -it $1 bash -c "$(declare -f _simpleboommeter _exportEmojis); export $(_exportEmojis); export BOOMCONTS=\"$BOOMCONTS\" &>/dev/null; export BOOMDEST=\"${1#*@}\"; export -f _simpleboommeter; export -f _exportEmojis; export BOOMHOSTUSER=\"$USER\"; export PROMPT_COMMAND='_simpleboommeter __auto'; export BOOMFIRSTRUN=yes; ${2:+cd $2; }bash; _simpleboommeter __export" | tee >(\grep -I --line-buffered ^"$_BE_BOOM" >> $_boomSession)
 }
 _boomssh() {
   # Not currently handling conflicting user sessions besides root
@@ -211,13 +212,13 @@ _boomssh() {
     echo "WARNING: A boom session created by root can break access to boom tracking files for other users. Be careful with multiple sessions."
     echo "         To avoid conflict, you need to have already boomed in the non-root user session on the host or use \`boomsu\` instead."
   fi
-  \ssh -tX $1 "$(declare -f _simpleboommeter _exportEmojis); export -f _simpleboommeter; export -f _exportEmojis; export $(_exportEmojis); export BOOMCONTS=\"$BOOMCONTS\"; export BOOMDEST=\"${1#*@}\"; export BOOMHOSTUSER=\"$USER\"; export PROMPT_COMMAND='_simpleboommeter __auto'; export BOOMFIRSTRUN=yes; ${2:+cd $2; }bash; _simpleboommeter __export" | tee >(\grep -I --line-buffered ^"$_BE_BOOM" >> $_boomSession)
+  \ssh -tX $1 "$(declare -f _simpleboommeter _exportEmojis); export -f _simpleboommeter; export -f _exportEmojis; export $(_exportEmojis); export BOOMCONTS=\"$BOOMCONTS\" &>/dev/null; export BOOMDEST=\"${1#*@}\"; export BOOMHOSTUSER=\"$USER\"; export PROMPT_COMMAND='_simpleboommeter __auto'; export BOOMFIRSTRUN=yes; ${2:+cd $2; }bash; _simpleboommeter __export" | tee >(\grep -I --line-buffered ^"$_BE_BOOM" >> $_boomSession)
 }
 _boomsession() {
   local callerfunc=${FUNCNAME[-1]} # forgot to make use of this but it's cool so here it is - should be == to ${1#_} here
-  if [[ ! " _boomssh _boomexec " =~ " $1 " ]]; then echo bash: _boomsession: command not found; return; fi # handling it like this just bc it's kind of funny
+  if [[ ! " _boomssh _boomexec " =~ " $1 " ]]; then echo bash: _boomsession: command not found; return 127; fi # handling it like this just bc it's kind of funny
 
-  if [[ "$DOOMBOOM" == "yes" ]]; then echo bash: ${1#_}: command not found; return; fi
+  if [[ "$DOOMBOOM" == "yes" ]]; then echo bash: ${1#_}: command not found; return 127; fi
   if [ "$_SILENTBOOM" == "yes" ]; then echo ${1#_}: cannot run with boom silent on; return; fi
 
   if [ -z "$2" ]; then echo Error: requires [USER@]host/container NAME arg; return; fi

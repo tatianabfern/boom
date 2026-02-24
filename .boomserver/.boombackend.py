@@ -158,6 +158,10 @@ def run_boom_hall_command():
 def get_boom_emoji():
     return run_simple_command('echo -n \$_BE_BOOM')
 
+@app.route('/run_boom_goal_command', methods=['POST'])
+def run_boom_goal_command():
+    return run_simple_command('_boomgoal _site-info_')
+
 #############################
 
 def read_file(filename, default_type = "log", lingering = False):

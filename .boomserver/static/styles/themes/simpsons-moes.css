@@ -1,7 +1,7 @@
 :root {
-    --background-color: #c77a9040;
-    --primary-color:    #5A2434BF;
-    --secondary-color:  #2a1a2e4d;
+    --background-color: #262a2e4d;
+    --primary-color: #3f3a3399;
+    --secondary-color: #9a6b2b33;
 
     --text-color: #ffffff;
     --text-emphasis-color: #ffd84d;
@@ -9,7 +9,7 @@
     --fav-user-text-color: #ffd84d;
     --bot-user-text-color: #8ea2ff;
 
-    --background-image-url: url('../assets/media/simpsons-couch.jpg');
+    --background-image-url: url('../assets/media/simpsons-moes.jpg');
 }
 
 @font-face {
@@ -23,6 +23,10 @@ body {
 
 h1 {
     font-family: 'SimpsonFont', sans-serif;
+    text-shadow:  0 -2px 0 rgba(0,0,0,.65);
+    text-shadow:  2  0px 0 rgba(0,0,0,.65);
+    text-shadow:  0  2px 0 rgba(0,0,0,1);
+    text-shadow: -2  0px 0 rgba(0,0,0,1);
 }
 
 h2 {

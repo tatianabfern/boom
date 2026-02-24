@@ -229,3 +229,10 @@ window.onload = function() {
         document.body.style.cursor = `url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 100 100'%3E%3Ctext y='78' font-size='82'%3E${enc}%3C/text%3E%3C/svg%3E") 16 16, auto`;
     });
 }
+
+document.addEventListener('keydown', function(event) {
+    if (event.key === "c") {
+        window.close();
+    }
+});
+

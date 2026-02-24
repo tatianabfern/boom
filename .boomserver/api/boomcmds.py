@@ -21,6 +21,7 @@ shutdown = Event()
 active_api_keys = set()
 latest_cmd_results = {}
 cmd_list = [
+    "echo -n \$_BE_BOOM",
     "boom latest && echo",
     "boom favorite && echo",
     "boom drought longest && echo",
@@ -34,7 +35,7 @@ cmd_list = [
     "boom board avg _sitesummary_",
     "boom board freq _sitesummary_",
     "boom board top 10",
-    "echo -n \$_BE_BOOM"
+    "_boomgoal _site-info_"
 ]
 
 def handle_exit():
