@@ -1,0 +1,46 @@
+:root {
+    --background-color: rgba(255, 255, 255, 0.75);
+    --primary-color: rgba(68, 92, 112, 0.6);
+    --secondary-color: rgba(41, 47, 77, 0.15);
+
+    --text-color: #e6ebff;
+    --text-emphasis-color: #a1c6f7;
+    --default-user-text-color: #9ac5fd;
+    --fav-user-text-color: #ffc7f3;
+    --bot-user-text-color: #66a0e2;
+
+    --background-image-url: url('../assets/media/me-espresso.png');
+}
+
+@font-face {
+    font-family: 'Tempting';
+    src: url('../../assets/fonts/Tempting/Tempting.ttf') format('truetype');
+}
+
+h1 {
+    font-family: 'Tempting', sans-serif;
+    font-weight: lighter;
+    text-shadow:
+    -1px -1px 0 black,
+     1px -1px 0 black,
+    -1px  1px 0 black,
+     1px  1px 0 black;
+}
+
+h2 {
+    font-size: 24px;
+    font-family: 'Tempting', sans-serif;
+    font-weight: lighter;
+}
+
+body {
+    text-shadow:
+    -1px -1px 0 black,
+     1px -1px 0 black,
+    -1px  1px 0 black,
+     1px  1px 0 black;
+}
+
+.ascii-art {
+    font-size: 10px;
+}
